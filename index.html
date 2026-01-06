@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>옵챔스 감독 시뮬레이터</title>
+    <style>
+        :root { --ow-orange: #f99e1a; --ow-blue: #405275; --dark-bg: #121418; --card-bg: #1e2329; --accent: #00ffcc; --ban-red: #ff5e57; --good-green: #2ecc71; --stamina: #e1b12c; --gold: #ffd700; }
+        body { background: var(--dark-bg); color: white; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; margin: 0; padding: 0; font-size: 14px; overflow: hidden; }
+        
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+
+        #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .team-btn { background: #333; color: white; border: 1px solid #555; padding: 15px 30px; margin: 5px; cursor: pointer; font-size: 1.1em; width: 200px; transition: 0.2s; }
+        .team-btn:hover { background: var(--ow-orange); color: black; border-color: var(--ow-orange); }
+        .load-btn { background: #2b313a; color: var(--accent); border: 1px solid var(--accent); padding: 15px 30px; margin-top: 20px; cursor: pointer; font-size: 1.2em; width: 300px; font-weight: bold; transition: 0.2s; display: none; }
+        .load-btn:hover { background: var(--accent); color: black; box-shadow: 0 0 15px var(--accent); }
+
+        #layout { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
+        
+        .sidebar { background: #181b21; border-right: 1px solid #333; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; position: relative; z-index: 10; }
+        .league-table { width: 100%; border-collapse: collapse; font-size: 0.85em; margin-bottom: 20px; }
+        .league-table th { color: var(--ow-orange); border-bottom: 2px solid #444; padding: 8px 4px; }
+        .league-table td { padding: 8px 4px; text-align: center; border-bottom: 1px solid #333; }
+        .my-team-row { background: rgba(249, 158, 26, 0.15); font-weight: bold; color: var(--ow-orange); }
+        
+        .side-btn { background: var(--ow-blue); color: white; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-bottom: 10px; width: 100%; transition:0.2s; }
+        .side-btn:hover { background: #506485; }
+        .potm-btn { background: #333; border: 1px solid var(--gold); color: var(--gold); }
+        .potm-btn:hover { background: var(--gold); color: black; }
+        .system-btn { background: #333; border: 1px solid #555; color: #aaa; font-size: 0.9em; margin-bottom: 5px; }
+        .system-btn:hover { background: #444; color: white; border-color: white; }
+
+        .main-panel { padding: 20px; display: flex; flex-direction: column; overflow-y: auto; position: relative; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+        
+        .scoreboard { font-size: 3em; font-weight: 800; text-align: center; color: var(--ow-orange); letter-spacing: 5px; margin: 10px 0; }
+        .phase-badge { background: #333; padding: 5px 12px; border-radius: 20px; font-size: 0.9em; color: var(--accent); border: 1px solid var(--accent); }
+
+        .game-container { flex-grow: 1; background: var(--card-bg); border-radius: 12px; padding: 20px; border: 1px solid #333; position: relative; }
+        .ui-phase { display: none; height: 100%; }
+        .active-phase { display: flex; flex-direction: column; justify-content: center; align-items: center; }
+
+        .setup-row { display: flex; gap: 20px; width: 100%; justify-content: center; }
+        .setup-col { background: #2b313a; padding: 15px; border-radius: 8px; width: 32%; min-width: 200px; }
+        select { width: 100%; padding: 10px; background: #121418; color: white; border: 1px solid #555; border-radius: 4px; margin-top: 5px; }
+        select:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .action-btn { background: var(--ow-orange); color: #000; font-weight: 800; padding: 15px 40px; border: none; border-radius: 6px; font-size: 1.2em; cursor: pointer; margin-top: 20px; transition: transform 0.1s; }
+        .action-btn:hover { transform: scale(1.02); filter: brightness(1.1); }
+        .action-btn:disabled { background: #555; cursor: not-allowed; transform: none; }
+
+        .train-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; max-width: 800px; margin-top: 20px; }
+        .train-card { background: #2b313a; padding: 20px; border-radius: 8px; border: 1px solid #444; cursor: pointer; transition: 0.2s; text-align: left; }
+        .train-card:hover { border-color: var(--ow-orange); background: #333842; }
+        .train-title { font-size: 1.1em; font-weight: bold; color: var(--ow-orange); margin-bottom: 5px; }
+        .train-desc { font-size: 0.9em; color: #aaa; }
+
+        .modal { display:none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 800px; max-height: 80vh; background: #1a1a1a; border: 2px solid var(--ow-orange); z-index: 10000; padding: 20px; border-radius: 10px; overflow-y: auto; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
+        .close-btn { position: absolute; top: 10px; right: 10px; background: none; border: none; color: white; font-size: 1.5em; cursor: pointer; }
+
+        .player-card { background: #333; margin-bottom: 10px; padding: 15px; border-radius: 5px; display: grid; grid-template-columns: 100px 1fr 150px; align-items: center; }
+        .stat-bars { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr; gap: 5px; font-size: 0.8em; color: #aaa; margin-left: 20px; }
+        .stat-val { color: var(--accent); font-weight: bold; }
+        .hp-val { color: var(--stamina); font-weight: bold; }
+
+        .potm-row { display: grid; grid-template-columns: 50px 1fr 1fr 100px; padding: 10px; border-bottom: 1px solid #333; align-items: center; }
+        .potm-row:nth-child(even) { background: #222; }
+        .potm-rank-1 { color: var(--gold); font-weight: bold; }
+        .potm-count { background: var(--gold); color: black; padding: 2px 8px; border-radius: 10px; font-weight: bold; display: inline-block;}
+
+        .opp-card { background: #1e1e1e; padding: 8px; margin-bottom: 5px; border-radius: 4px; border-left: 3px solid var(--ban-red); display:flex; justify-content: space-between; align-items: center; }
+        .opp-hero { font-weight:bold; color: var(--ban-red); font-size: 0.9em; transition: all 0.5s ease; }
+        .opp-hero.hidden { color: #555; letter-spacing: 2px; }
+
+        .meta-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-right: 5px; margin-bottom: 5px; }
+        .good-tag { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid #2ecc71; }
+        .bad-tag { background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid #e74c3c; }
+
+        #log-window { height: 250px; background: #000; border-top: 2px solid var(--ow-orange); margin-top: 20px; padding: 10px; font-family: 'Consolas', monospace; overflow-y: auto; font-size: 0.9em; color: #eee; line-height: 1.6; }
+        .log-win { color: var(--accent); } .log-lose { color: var(--ban-red); }
+        .log-potm { color: var(--gold); font-weight: bold; }
+        .log-skill { color: #f1c40f; font-weight: bold; }
+        .log-caster { color: #3498db; }
+        .log-mistake { color: #e74c3c; font-weight: bold; text-decoration: underline; }
+        .log-crack { color: #00ffcc; font-weight: bold; font-style: italic; }
+        .log-teamwork { color: #e1b12c; font-weight: bold; }
+
+        /* ENDING SCREEN */
+        #ending-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95); z-index: 20000;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; color: white;
+        }
+    </style>
+</head>
+<body>
+
+<div id="start-screen">
+    <h1 style="color:var(--ow-orange); font-size:3em; margin-bottom:10px;">옵챔스 감독 시뮬레이터</h1>
+    <p style="color:#aaa; margin-bottom:30px;">감독을 맡을 팀을 선택하십시오. (총 9팀)</p>
+    <button id="load-btn-start" class="load-btn" onclick="loadGame()">📂 불러오기 (Load Game)</button>
+    <br><br>
+    <div id="team-buttons" style="display:flex; flex-wrap:wrap; justify-content:center; max-width:800px;"></div>
+</div>
+
+<div id="ending-screen">
+    <h1 style="font-size:5em; color:var(--gold); text-shadow: 0 0 20px var(--gold); margin-bottom: 10px;">🏆 VICTORY 🏆</h1>
+    <h2 style="font-size:2em; margin-bottom: 30px;">OWCS KOREA CHAMPIONS</h2>
+    <p style="font-size:1.2em; color:#ccc; max-width: 600px; line-height: 1.6;">
+        축하합니다, 감독님! 치열한 승부 끝에 팀을 정상으로 이끌었습니다.<br>
+        당신의 전술과 리더십은 전설로 남을 것입니다.
+    </p>
+    <button class="action-btn" onclick="location.reload()" style="margin-top:40px;">타이틀로 돌아가기</button>
+</div>
+
+<div id="roster-modal" class="modal">
+    <button class="close-btn" onclick="toggleModal('roster-modal')">×</button>
+    <h2 style="margin-top:0; color:var(--ow-orange);">MY TEAM ROSTER</h2>
+    <div id="roster-content"></div>
+</div>
+
+<div id="potm-modal" class="modal">
+    <button class="close-btn" onclick="toggleModal('potm-modal')">×</button>
+    <h2 style="margin-top:0; color:var(--gold);">🏆 LEAGUE POTM RANKING</h2>
+    <div class="potm-row" style="font-weight:bold; color:#aaa; border-bottom:2px solid #555;">
+        <div>#</div><div>PLAYER</div><div>TEAM</div><div>POTM</div>
+    </div>
+    <div id="potm-content"></div>
+</div>
+
+<div id="layout">
+    <div class="sidebar">
+        <button class="side-btn" onclick="toggleRoster()">📋 MY ROSTER (선수 정보)</button>
+        <button class="side-btn potm-btn" onclick="togglePOTM()">🏆 LEAGUE POTM</button>
+        
+        <div style="margin-top:20px; border-top:1px solid #333; padding-top:10px;">
+            <div style="color:#666; font-size:0.8em; margin-bottom:5px;">SYSTEM</div>
+            <button class="side-btn system-btn" onclick="saveGame()">💾 GAME SAVE</button>
+            <button class="side-btn system-btn" onclick="resetGame()">🗑️ RESET DATA</button>
+        </div>
+
+        <h3 style="text-align:center; margin-top:20px;">🏆 SEASON STANDINGS</h3>
+        <div id="round-display" style="text-align:center; color:var(--accent); margin-bottom:15px; font-weight:bold;">PRE-SEASON</div>
+        
+        <table class="league-table">
+            <thead><tr><th>#</th><th>TEAM</th><th>W</th><th>L</th><th>DIFF</th></tr></thead>
+            <tbody id="standings-body"></tbody>
+        </table>
+
+        <div id="tournament-tree" style="display:none; background:#111; padding:10px; border-radius:8px; font-size:0.85em;">
+            <h4 style="margin:5px 0; color:var(--ow-orange);">PLAYOFFS</h4>
+            <div id="bracket-view"></div>
+        </div>
+    </div>
+
+    <div class="main-panel">
+        <div class="header">
+            <div>
+                <h1 id="match-title" style="margin:0; font-size:1.8em;">WAITING...</h1>
+                <div id="match-subtitle" style="color:#888; margin-top:5px;">시즌 준비 중</div>
+            </div>
+            <div style="text-align:right;">
+                <div class="phase-badge" id="current-phase-badge">LOBBY</div>
+                <div id="set-score-txt" style="font-weight:bold; margin-top:5px; font-size:1.2em;">Bo5</div>
+            </div>
+        </div>
+
+        <div class="scoreboard">
+            <span id="sc-my">0</span> - <span id="sc-opp">0</span>
+        </div>
+
+        <div class="game-container">
+            <div id="ui-training" class="ui-phase">
+                <h2 style="color:var(--good-green);">🏋️ TRAINING CENTER</h2>
+                <p id="train-desc-txt" style="color:#aaa;">훈련 시 체력 +10, 휴식 시 체력 +30 회복됩니다.</p>
+                <div class="train-grid">
+                    <div class="train-card" onclick="runTraining('AIM')">
+                        <div class="train-title">🎯 에임 훈련</div>
+                        <div class="train-desc">팀 전체의 <span style="color:white;">AIM +1</span> 상승 (Max 99)</div>
+                    </div>
+                    <div class="train-card" onclick="runTraining('SENSE')">
+                        <div class="train-title">🧠 센스 훈련</div>
+                        <div class="train-desc">팀 전체의 <span style="color:white;">SENSE +1</span> 상승 (Max 99)</div>
+                    </div>
+                    <div class="train-card" onclick="runTraining('MENTAL')">
+                        <div class="train-title">🧘 멘탈 훈련</div>
+                        <div class="train-desc">팀 전체의 <span style="color:white;">MENTAL +1</span> (실수 확률 감소)</div>
+                    </div>
+                    <div class="train-card" onclick="runTraining('TEAM')">
+                        <div class="train-title">🤝 팀워크 훈련</div>
+                        <div class="train-desc">팀 전체의 <span style="color:white;">TEAM +1</span> (역전 확률 증가)</div>
+                    </div>
+                    <div class="train-card" style="grid-column: span 2; cursor:default; border-color:#555;">
+                         <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div class="train-title" style="color:var(--accent);">⚔️ 영웅 집중 연습</div>
+                                <div class="train-desc">선수 1명이 영웅을 연습합니다. (기본 3회 / 다재다능 2회)</div>
+                            </div>
+                            <div style="display:flex; gap:10px;">
+                                <select id="train-p-select" style="width:120px;"></select>
+                                <select id="train-h-select" style="width:120px;"></select>
+                                <button onclick="runTraining('HERO')" style="background:var(--accent); border:none; border-radius:4px; font-weight:bold; cursor:pointer;">GO</button>
+                            </div>
+                         </div>
+                    </div>
+                    <div class="train-card" style="grid-column: span 2; border-color:var(--stamina);" onclick="runTraining('REST')">
+                        <div class="train-title" style="color:var(--stamina);">🛌 전원 휴식</div>
+                        <div class="train-desc">훈련을 쉬고 컨디션을 조절합니다. <span style="color:white;">체력 +30</span> 회복</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ui-lobby" class="ui-phase">
+                <h2 id="next-match-info" style="color:var(--accent);"></h2>
+                <p id="lobby-desc" style="color:#aaa; max-width:600px; text-align:center;"></p>
+                <div id="selection-area" style="display:none; width:100%; text-align:center;">
+                    <h3 style="color:var(--ow-orange);">상대를 지명하십시오 (1위 특전)</h3>
+                    <div id="pick-opponent-btns" style="display:flex; justify-content:center; gap:10px;"></div>
+                </div>
+                <button id="btn-start-match" class="action-btn" onclick="proceedLobby()">일정 진행</button>
+            </div>
+
+            <div id="ui-map" class="ui-phase">
+                <h2>🗺️ MAP SELECTION</h2>
+                <p id="map-msg" style="color:#ccc;"></p>
+                <div style="width:300px;">
+                    <select id="map-select"></select>
+                </div>
+                <button class="action-btn" onclick="confirmMap()">CONFIRM</button>
+            </div>
+
+            <div id="ui-roster" class="ui-phase">
+                <h2>📋 LINEUP CHECK</h2>
+                <div id="map-meta-roster" style="text-align:center; margin-bottom:15px; font-size:0.9em; color:#888;"></div>
+                <div class="setup-row">
+                    <div class="setup-col">
+                        <h4 style="color:var(--accent);">MY LINEUP (Select Players)</h4>
+                        <div id="roster-slots"></div>
+                    </div>
+                    <div class="setup-col" style="border:1px solid #444;">
+                        <h4 style="color:var(--ban-red);">OPPONENT LINEUP</h4>
+                        <div id="roster-opp-display" style="padding:20px; text-align:center; color:#ccc;">
+                            (Waiting for your confirmation...)
+                        </div>
+                    </div>
+                </div>
+                <button class="action-btn" onclick="confirmRoster()">CONFIRM ROSTER</button>
+            </div>
+
+            <div id="ui-ban" class="ui-phase">
+                <h2 style="color:var(--ban-red);">🚫 HERO BAN PHASE</h2>
+                <p style="color:#aaa; font-size:0.9em; margin-bottom:15px;">* 이전 세트에 밴한 역할군은 연속으로 밴할 수 없습니다.</p>
+                <p style="color:#aaa; font-size:0.8em;">* 같은 세트에 양 팀은 동일한 역할군을 밴할 수 없습니다.</p>
+                <div class="setup-row">
+                    <div class="setup-col" style="border:1px solid var(--ban-red);">
+                        <h4>우리 팀 밴</h4>
+                        <select id="ban-select"></select>
+                    </div>
+                    <div class="setup-col">
+                        <h4>상대 팀 밴</h4>
+                        <div id="opp-ban-display" style="font-size:1.5em; font-weight:bold; margin-top:10px;">-</div>
+                    </div>
+                    <div class="setup-col" style="opacity:0.7;">
+                        <h4>상대 라인업</h4>
+                        <div id="ban-phase-opp-list" style="font-size:0.9em;"></div>
+                    </div>
+                </div>
+                <button class="action-btn" onclick="confirmBan()">BAN HERO</button>
+            </div>
+
+            <div id="ui-pick" class="ui-phase">
+                <h2>⚔️ HERO PICK</h2>
+                <p style="text-align:center; color:#e74c3c; margin-bottom:10px; font-weight:bold;">※ 밴 된 영웅은 양 팀 모두 픽할 수 없습니다.</p>
+                <div class="setup-row" style="align-items: flex-start;">
+                    <div class="setup-col">
+                        <h4 style="color:var(--ow-orange);">🛡️ MY HERO PICK</h4>
+                        <div id="pick-slots"></div>
+                    </div>
+                    <div class="setup-col" style="border:1px solid #444;">
+                        <h4 style="color:var(--ban-red);">👿 OPPONENT</h4>
+                        <div id="opp-entry-display"></div>
+                    </div>
+                </div>
+                <button class="action-btn" onclick="runSimulation()">FIGHT!</button>
+            </div>
+        </div>
+
+        <div id="log-window">시스템 준비 완료. 팀을 선택해주세요.</div>
+    </div>
+</div>
+
+<script>
+    // --- DATA ---
+    const HEROES = {
+        TANK: [{n:"디바",t:"Poke"},{n:"둠피스트",t:"Dive"},{n:"윈스턴",t:"Dive"},{n:"시그마",t:"Poke"},{n:"라인하르트",t:"Rush"},{n:"라마트라",t:"Rush"},{n:"오리사",t:"Poke"},{n:"자리야",t:"Rush"},{n:"마우가",t:"Rush"},{n:"정커퀸",t:"Rush"},{n:"레킹볼",t:"Dive"},{n:"로드호그",t:"Poke"},{n:"해저드",t:"Dive"}],
+        DPS: [{n:"트레이서",t:"Dive"},{n:"겐지",t:"Dive"},{n:"소전",t:"Poke"},{n:"캐서디",t:"Poke"},{n:"에코",t:"Dive"},{n:"위도우메이커",t:"Poke"},{n:"메이",t:"Rush"},{n:"리퍼",t:"Rush"},{n:"애쉬",t:"Poke"},{n:"솜브라",t:"Dive"},{n:"솔저: 76",t:"Poke"},{n:"파라",t:"Poke"},{n:"바스티온",t:"Poke"},{n:"벤데타",t:"Dive"},{n:"벤처",t:"Dive"},{n:"시메트라",t:"Rush"},{n:"정크랫",t:"Poke"},{n:"토르비욘",t:"Poke"},{n:"프레야",t:"Poke"},{n:"한조",t:"Poke"}],
+        SUP: [{n:"아나",t:"Poke"},{n:"키리코",t:"Dive"},{n:"루시우",t:"Rush"},{n:"브리기테",t:"Poke"},{n:"바티스트",t:"Poke"},{n:"주노",t:"Rush"},{n:"젠야타",t:"Poke"},{n:"일리아리",t:"Poke"},{n:"라이프위버",t:"Poke"},{n:"모이라",t:"Rush"},{n:"메르시",t:"Poke"},{n:"우양",t:"Poke"}]
+    };
+    
+    const HERO_SKILLS = {
+        "디바": "자폭", "둠피스트": "파멸의 일격", "윈스턴": "원시의 분노", "시그마": "중력 붕괴", "라인하르트": "대지분쇄", "라마트라": "절멸", "오리사": "대지의 창", "자리야": "중력자탄", "마우가": "케이지", "정커퀸": "살육", "레킹볼": "지뢰밭", "로드호그": "돼재앙", "해저드": "가시소나기",
+        "트레이서": "펄스 폭탄", "겐지": "용검", "소전": "오버클럭", "캐서디": "황야의 무법자", "에코": "복제", "위도우메이커": "헤드샷", "메이": "눈보라", "리퍼": "죽음의 꽃", "애쉬": "밥(B.O.B)", "솜브라": "EMP", "솔저: 76": "전술 조준경", "파라": "포화", "바스티온": "포격", "벤데타": "갈라내는 칼날", "벤처": "지각 충격", "시메트라": "광자 방벽", "정크랫": "죽이는 타이어", "토르비욘": "초고열 용광로", "프레야": "올가미 사격", "한조": "용의 일격",
+        "아나": "나노 강화제", "키리코": "여우길", "루시우": "소리 방벽", "브리기테": "집결", "바티스트": "증폭 매트릭스", "주노": "궤도 광선", "젠야타": "초월", "일리아리": "태양 작렬", "라이프위버": "생명의 나무", "모이라": "융화", "메르시": "발키리", "우양": "해일 폭발"
+    };
+
+    const COMMENTARY_DB = {
+        OPENING: [
+            "거점이 열립니다! 양 팀 모두 치열하게 자리를 잡습니다.",
+            "초반 교전, 서로 신중하게 스킬을 교환하고 있습니다.",
+            "빠르게 치고 들어가는 선공! 반응 속도가 중요합니다.",
+            "탱커진의 힘싸움이 시작됩니다. 자존심 대결이네요."
+        ],
+        MISTAKE: [
+            "아, **{player}**의 **{hero}**! **{skill}**이 허공을 가릅니다! 뼈아픈 실수네요.",
+            "**{player}** 선수, 너무 깊게 들어갔어요! 아군 케어를 받지 못하고 잘립니다.",
+            "**{hero}**(**{player}**)의 포지션이 꼬였습니다. 허무하게 죽고 마네요.",
+            "낙사! **{player}** 선수가 맵을 제대로 확인하지 못했습니다. 분위기 싸해지는데요.",
+            "스킬 쿨타임 계산 미스인가요? **{player}** 선수, 중요할 때 **{skill}**이 없어요!"
+        ],
+        CRACK: [
+            "**{player}**의 **{hero}**! 말도 안 되는 피지컬로 전장을 휩쓸어버립니다!",
+            "저걸 살아가나요? 아니, 오히려 **{player}** 선수가 상대를 잡아냅니다! 슈퍼플레이!",
+            "**{hero}**(**{player}**)의 완벽한 에임 트래킹! 상대가 숨도 못 쉬고 삭제됩니다.",
+            "입이 다물어지지 않는 변수 창출! **{player}** 선수가 바로 '크랙'입니다!",
+            "**{player}**의 **{hero}**! 반응속도로 상대 궁극기를 **{skill}**로 씹어버립니다! 미쳤습니다!"
+        ],
+        TEAMWORK_COMEBACK: [
+            "불리한 상황, 하지만 엄청난 한타 집중력으로 버텨냅니다!",
+            "상대의 실수를 놓치지 않고 완벽한 포커싱으로 역전각을 봅니다.",
+            "궁극기 연계가 예술입니다! 한타 대승!",
+            "팀합이 무너진 상대를 각개격파합니다. 분위기 넘어왔어요!"
+        ],
+        TEAMWORK_FAIL: [
+            "팀원 간의 사인이 전혀 맞지 않습니다. 따로 놀고 있어요.",
+            "궁극기를 아끼다가 한타가 터져버렸습니다. 소통 부재네요.",
+            "백업이 너무 늦습니다! 각개격파 당하고 있습니다."
+        ]
+    };
+
+    const sorter = (a, b) => a.n.localeCompare(b.n);
+    HEROES.TANK.sort(sorter);
+    HEROES.DPS.sort(sorter);
+    HEROES.SUP.sort(sorter);
+
+    const ALL_HEROES = [...HEROES.TANK, ...HEROES.DPS, ...HEROES.SUP].map(h=>h.n).sort();
+    
+    function getHeroRole(name) {
+        if(HEROES.TANK.find(h=>h.n===name)) return "TANK";
+        if(HEROES.DPS.find(h=>h.n===name)) return "DPS";
+        if(HEROES.SUP.find(h=>h.n===name)) return "SUP";
+        return "UNKNOWN";
+    }
+
+    // CHANGED TO LET FOR SAVE/LOAD OVERWRITE
+    let TEAM_DB = {
+        "Crazy Raccoon": [
+            {n:"Junbin",r:"TANK",a:90,s:98,m:96,t:99,ms:["윈스턴","레킹볼"]},
+            {n:"Max",r:"TANK",a:93,s:95,m:92,t:95,ms:["시그마","자리야"], trait:"분위기메이커"},
+            {n:"Lip",r:"DPS",a:99,s:96,m:98,t:95,ms:["소전","솜브라"], trait:"베테랑"},
+            {n:"HeeSang",r:"DPS",a:96,s:95,m:93,t:96,ms:["트레이서","파라"], trait:"다재다능"},
+            {n:"Sp1nt",r:"DPS",a:94,s:88,m:89,t:87,ms:["겐지","파라"], trait:"유망주"},
+            {n:"Shu",r:"SUP",a:97,s:99,m:98,t:98,ms:["아나","바티스트"], trait:"베테랑"},
+            {n:"Chorong",r:"SUP",a:88,s:99,m:97,t:99,ms:["루시우","브리기테"], trait:"분위기메이커"}
+        ],
+        "Team Falcons": [
+            {n:"Someone",r:"TANK",a:92,s:99,m:97,t:98,ms:["라마트라"], trait:"다재다능"},
+            {n:"Hanbin",r:"TANK",a:93,s:97,m:98,t:98,ms:["정커퀸","디바"], trait:"베테랑"},
+            {n:"Proper",r:"DPS",a:99,s:98,m:96,t:95,ms:["트레이서","겐지"], trait:"소년가장"},
+            {n:"Mer1t",r:"DPS",a:97,s:94,m:94,t:95,ms:["소전","캐서디"]},
+            {n:"Fielder",r:"SUP",a:90,s:99,m:98,t:99,ms:["아나","키리코"], trait:"베테랑"},
+            {n:"Chiyo",r:"SUP",a:85,s:98,m:98,t:99,ms:["루시우","브리기테"], trait:"베테랑"}
+        ],
+        "ZETA DIVISION": [
+            {n:"Mag",r:"TANK",a:88,s:89,m:88,t:88,ms:["윈스턴","라인하르트"], trait:"분위기메이커"},
+            {n:"Bernar",r:"TANK",a:92,s:94,m:94,t:94,ms:["오리사"], trait:"베테랑"},
+            {n:"AlphaYi",r:"DPS",a:96,s:94,m:92,t:93,ms:["겐지","트레이서"], trait:"소년가장"},
+            {n:"Pelican",r:"DPS",a:95,s:95,m:93,t:94,ms:["에코","메이"], trait:"다재다능"},
+            {n:"Probe",r:"DPS",a:96,s:85,m:84,t:90,ms:["프레야","애쉬"]},
+            {n:"Bliss",r:"SUP",a:87,s:95,m:94,t:97,ms:["루시우","브리기테"]},
+            {n:"Finn",r:"SUP",a:92,s:92,m:90,t:92,ms:["키리코"]}
+        ],
+        "T1": [
+            {n:"Donghak",r:"TANK",a:87,s:91,m:88,t:91,ms:["윈스턴","레킹볼"]},
+            {n:"Jasm1ne",r:"TANK",a:88,s:91,m:89,t:91,ms:["자리야","시그마"], trait:"분위기메이커"},
+            {n:"Proud",r:"DPS",a:97,s:90,m:90,t:89,ms:["프레야","소전"], trait:"유망주"},
+            {n:"Zest",r:"DPS",a:94,s:94,m:92,t:93,ms:["트레이서","벤처"], trait:"소년가장"},
+            {n:"Viper",r:"DPS",a:94,s:89,m:92,t:93,ms:["겐지"]},
+            {n:"Skewed",r:"SUP",a:86,s:95,m:94,t:96,ms:["루시우","브리기테"], trait:"다재다능"},
+            {n:"Vigilante",r:"SUP",a:93,s:91,m:90,t:91,ms:["아나","젠야타"]}
+        ],
+        "WAE": [
+            {n:"Mealgaru",r:"TANK",a:86,s:89,m:88,t:89,ms:["레킹볼"]},
+            {n:"Ade",r:"DPS",a:94,s:88,m:87,t:88,ms:["소전","프레야"], trait:"유망주"},
+            {n:"SeonJun",r:"DPS",a:89,s:88,m:87,t:88,ms:["트레이서","벤처"], trait:"다재다능"},
+            {n:"Taejong",r:"DPS",a:92,s:80,m:82,t:85,ms:["트레이서"]},
+            {n:"Maka",r:"SUP",a:88,s:89,m:88,t:89,ms:["아나"]},
+            {n:"Leesoomin",r:"SUP",a:88,s:89,m:88,t:89,ms:["키리코"], trait:"다재다능"}
+        ],
+        "Onside Gaming": [
+            {n:"Attack",r:"TANK",a:87,s:88,m:88,t:89,ms:["디바"]},
+            {n:"Kellan",r:"TANK",a:89,s:88,m:87,t:89,ms:["윈스턴"]},
+            {n:"Knife",r:"DPS",a:93,s:89,m:88,t:89,ms:["트레이서"], trait:"소년가장"},
+            {n:"Ado",r:"DPS",a:85,s:88,m:88,t:89,ms:["겐지"]},
+            {n:"Kilo",r:"DPS",a:90,s:80,m:85,t:87,ms:["프레야","캐서디"], trait:"분위기메이커"},
+            {n:"Opener",r:"SUP",a:80,s:87,m:85,t:88,ms:["루시우"]},
+            {n:"Irony",r:"SUP",a:88,s:87,m:86,t:88,ms:["아나"]}
+        ],
+        "Mir Gaming": [
+            {n:"Ruler",r:"TANK",a:88,s:87,m:86,t:87,ms:["자리야"], trait:"유망주"},
+            {n:"Azent",r:"DPS",a:90,s:87,m:86,t:87,ms:["트레이서","겐지"]},
+            {n:"K4ne",r:"DPS",a:86,s:87,m:88,t:86,ms:["리퍼"]},
+            {n:"Flos",r:"DPS",a:88,s:87,m:88,t:86,ms:["소전"]},
+            {n:"Mcd",r:"SUP",a:82,s:88,m:85,t:88,ms:["젠야타"], trait:"베테랑"},
+            {n:"Univ2r",r:"SUP",a:87,s:88,m:85,t:88,ms:["키리코"]}
+        ],
+        "Old Ocean": [
+            {n:"Gur3um",r:"TANK",a:86,s:89,m:88,t:89,ms:["해저드","디바"]},
+            {n:"Heiser",r:"TANK",a:86,s:89,m:88,t:89,ms:["윈스턴","레킹볼"], trait:"유망주"},
+            {n:"A1ien",r:"DPS",a:90,s:88,m:88,t:86,ms:["위도우메이커","한조"]},
+            {n:"D4rt",r:"DPS",a:86,s:87,m:88,t:86,ms:["리퍼"]},
+            {n:"Becky",r:"DPS",a:91,s:87,m:86,t:87,ms:["트레이서","겐지"], trait:"소년가장"},
+            {n:"Ryujehong",r:"SUP",a:85,s:92,m:90,t:90,ms:["아나","라이프위버"], trait:"베테랑"},
+            {n:"Kivis",r:"SUP",a:91,s:86,m:85,t:88,ms:["키리코"], trait:"유망주"}
+        ],
+        "Cheeseburger": [
+            {n:"Farmer",r:"TANK",a:87,s:87,m:86,t:87,ms:["윈스턴"]},
+            {n:"SeungAn",r:"TANK",a:87,s:87,m:86,t:87,ms:["시그마"]},
+            {n:"Argon",r:"DPS",a:88,s:86,m:86,t:87,ms:["트레이서"]},
+            {n:"D0d0",r:"DPS",a:88,s:86,m:86,t:87,ms:["트레이서"], trait:"유망주"},
+            {n:"Zesin",r:"DPS",a:88,s:86,m:86,t:87,ms:["프레야"]},
+            {n:"Woochan",r:"SUP",a:86,s:86,m:85,t:88,ms:["아나"]},
+            {n:"Faith",r:"SUP",a:86,s:86,m:85,t:88,ms:["브리기테"]}
+        ]
+    };
+    const MAP_META = {
+        "사모아": { type: "Rush", good: ["라인하르트", "메이", "루시우", "시메트라"], bad: ["위도우메이커", "시그마"] },
+        "오아시스": { type: "Rush", good: ["리퍼", "정커퀸", "루시우"], bad: ["위도우메이커"] },
+        "일리오스": { type: "Control", good: ["로드호그", "오리사", "루시우", "파라"], bad: [] },
+        "부산": { type: "Dive", good: ["윈스턴", "트레이서", "솜브라"], bad: ["라인하르트"] },
+        "왕의 길": { type: "Rush", good: ["라인하르트", "자리야", "메이", "한조"], bad: ["윈스턴", "볼"] },
+        "할리우드": { type: "Hybrid", good: ["시그마", "소전", "애쉬"], bad: [] },
+        "아이헨발데": { type: "Rush", good: ["라인하르트", "파라", "바스티온"], bad: ["위도우메이커"] },
+        "수라바사": { type: "Dive", good: ["윈스턴", "둠피스트", "루시우", "키리코"], bad: ["시그마", "로드호그"] },
+        "아틀리스": { type: "Flashpoint", good: ["정커퀸", "트레이서", "루시우"], bad: [] },
+        "뉴 퀸 스트리트": { type: "Push", good: ["트레이서", "소전", "루시우", "키리코"], bad: ["라인하르트"] },
+        "에스페란사": { type: "Dive", good: ["윈스턴", "트레이서", "소전"], bad: ["로드호그"] },
+        "쓰레기촌": { type: "Poke", good: ["시그마", "위도우메이커", "소전", "바티스트", "젠야타"], bad: ["라인하르트", "리퍼", "메이"] },
+        "감시 기지: 지브롤터": { type: "Dive", good: ["윈스턴", "디바", "겐지", "에코"], bad: ["라인하르트", "자리야"] },
+        "리알토": { type: "Poke", good: ["애쉬", "캐서디", "시그마"], bad: [] }
+    };
+    const MAP_POOLS = {
+        "쟁탈": ["사모아","오아시스","일리오스","부산"],
+        "혼합": ["왕의 길","할리우드","아이헨발데"],
+        "플래시": ["수라바사","아틀리스"],
+        "밀기": ["뉴 퀸 스트리트","에스페란사"],
+        "호위": ["쓰레기촌","감시 기지: 지브롤터","리알토"]
+    };
+
+    // --- STATE ---
+    let myTeam = ""; 
+    let leagueStats = {};
+    let schedule = [];
+    let currentWeek = 1; 
+    let currentDayStep = 0; 
+    let seasonState = "REGULAR";
+    let seasonCount = 1;
+
+    let currentMatch = null; 
+    let setScores = [0, 0];
+    let currentSet = 1;
+    let currentMap = "";
+    let bans = {my:[], opp:[]};
+    let lastBanRole = { my: null, opp: null };
+    
+    let myLockedPlayers = []; 
+    let oppLockedPlayers = []; 
+    let myHeroPicks = [];
+    let oppHeroPicks = [];
+    let playedMaps = [];
+    
+    let playerSetCounts = {}; 
+
+    let setWinner = -1; 
+    let playoffMatches = {};
+
+    window.onload = function() {
+        Object.values(TEAM_DB).forEach(roster => {
+            roster.forEach(p => { 
+                p.hp = 100; 
+                p.practiceProgress = {}; 
+                p.potm = 0; 
+            });
+        });
+
+        const btnBox = document.getElementById('team-buttons');
+        Object.keys(TEAM_DB).forEach(t => {
+            let btn = document.createElement('button');
+            btn.className = 'team-btn';
+            btn.innerText = t;
+            btn.onclick = () => selectTeam(t);
+            btnBox.appendChild(btn);
+        });
+
+        // CHECK SAVE
+        if(localStorage.getItem("owcs_save_v1")) {
+            document.getElementById('load-btn-start').style.display = 'block';
+        }
+    };
+
+    // --- SAVE & LOAD SYSTEM ---
+    function saveGame() {
+        if(!myTeam) return;
+        const saveData = {
+            myTeam, seasonCount, currentWeek, currentDayStep, seasonState,
+            leagueStats, schedule, TEAM_DB, playoffMatches, currentMatch
+        };
+        localStorage.setItem("owcs_save_v1", JSON.stringify(saveData));
+        alert("게임이 저장되었습니다.");
+    }
+
+    function loadGame() {
+        const dataStr = localStorage.getItem("owcs_save_v1");
+        if(!dataStr) { alert("저장된 데이터가 없습니다."); return; }
+        
+        const data = JSON.parse(dataStr);
+        myTeam = data.myTeam;
+        seasonCount = data.seasonCount;
+        currentWeek = data.currentWeek;
+        currentDayStep = data.currentDayStep;
+        seasonState = data.seasonState;
+        leagueStats = data.leagueStats;
+        schedule = data.schedule;
+        TEAM_DB = data.TEAM_DB; // Overwrite DB
+        playoffMatches = data.playoffMatches;
+        currentMatch = data.currentMatch;
+
+        document.getElementById('start-screen').style.display = 'none';
+        
+        // RE-INIT UI
+        const pSel = document.getElementById('train-p-select');
+        const hSel = document.getElementById('train-h-select');
+        pSel.innerHTML = "";
+        TEAM_DB[myTeam].forEach(p => {
+             let op = document.createElement('option');
+             op.value = p.n; op.innerText = p.n;
+             pSel.appendChild(op);
+        });
+        hSel.innerHTML = "";
+        ALL_HEROES.forEach(h => {
+             let op = document.createElement('option');
+             op.value = h; op.innerText = h;
+             hSel.appendChild(op);
+        });
+
+        updateRoundUI();
+        updateStandings();
+        log(`[SYSTEM] 게임 로드 완료. (Season ${seasonCount})`);
+    }
+
+    function resetGame() {
+        if(confirm("저장된 데이터를 모두 삭제하고 초기화하시겠습니까?")) {
+            localStorage.removeItem("owcs_save_v1");
+            location.reload();
+        }
+    }
+
+    function selectTeam(t) {
+        myTeam = t;
+        document.getElementById('start-screen').style.display = 'none';
+        initLeague();
+    }
+
+    function initLeague() {
+        Object.keys(TEAM_DB).forEach(t => leagueStats[t] = {w:0, l:0, d:0, name:t});
+        schedule = [];
+        generateSchedule();
+        
+        const pSel = document.getElementById('train-p-select');
+        const hSel = document.getElementById('train-h-select');
+        pSel.innerHTML = "";
+        TEAM_DB[myTeam].forEach(p => {
+             let op = document.createElement('option');
+             op.value = p.n; op.innerText = p.n;
+             pSel.appendChild(op);
+        });
+        hSel.innerHTML = "";
+        ALL_HEROES.forEach(h => {
+             let op = document.createElement('option');
+             op.value = h; op.innerText = h;
+             hSel.appendChild(op);
+        });
+
+        updateRoundUI();
+        updateStandings();
+        log(`== SEASON ${seasonCount} START ==`);
+        log(`감독님, ${myTeam}의 ${seasonCount}번째 시즌이 시작됩니다.`);
+    }
+
+    // --- UTILS & CORE ---
+    function getCurrentOpponentName() {
+        if (seasonState === "REGULAR") {
+            if(!currentMatch) return null;
+            return (currentMatch.h === myTeam) ? currentMatch.a : currentMatch.h;
+        } else if (seasonState === "POST_SEMI") {
+            if (!playoffMatches.semiA) return null;
+            if (playoffMatches.semiA.h === myTeam) return playoffMatches.semiA.a;
+            if (playoffMatches.semiA.a === myTeam) return playoffMatches.semiA.h;
+            if (playoffMatches.semiB.h === myTeam) return playoffMatches.semiB.a;
+            return playoffMatches.semiB.h;
+        } else if (seasonState === "POST_FINAL") {
+            if (!playoffMatches.final) return null;
+            return (playoffMatches.final.h === myTeam) ? playoffMatches.final.a : playoffMatches.final.h;
+        }
+        return null;
+    }
+
+    function toggleModal(id) {
+        if(!myTeam) return;
+        const m = document.getElementById(id);
+        m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+    }
+    function toggleRoster() {
+        if(!myTeam) return;
+        toggleModal('roster-modal');
+        const content = document.getElementById('roster-content');
+        const players = TEAM_DB[myTeam];
+        let html = "";
+        players.forEach(p => {
+            let msStr = p.ms.join(", ");
+            let hpColor = p.hp > 80 ? '#2ecc71' : (p.hp > 50 ? '#f1c40f' : '#e74c3c');
+            html += `<div class="player-card">
+                    <div style="font-weight:bold; color:var(--ow-orange); font-size:1.2em;">${p.n}</div>
+                    <div class="stat-bars">
+                        <div>AIM: <span class="stat-val">${p.a}</span></div>
+                        <div>SEN: <span class="stat-val">${p.s}</span></div>
+                        <div>MEN: <span class="stat-val">${p.m}</span></div>
+                        <div>TEAM: <span class="stat-val">${p.t}</span></div>
+                        <div>HP: <span class="hp-val" style="color:${hpColor}">${p.hp}%</span></div>
+                    </div>
+                    <div style="text-align:right; font-size:0.85em; color:#ccc;">
+                        <div>${p.r}</div>
+                        <div style="color:var(--accent);">★ ${msStr}</div>
+                    </div>
+                </div>`;
+        });
+        content.innerHTML = html;
+    }
+    function togglePOTM() {
+        if(!myTeam) return;
+        toggleModal('potm-modal');
+        const content = document.getElementById('potm-content');
+        let allPlayers = [];
+        Object.keys(TEAM_DB).forEach(tName => {
+            TEAM_DB[tName].forEach(p => allPlayers.push({ ...p, team: tName }));
+        });
+        allPlayers.sort((a,b) => b.potm - a.potm || b.a - a.a);
+        let html = "";
+        allPlayers.forEach((p, i) => {
+            if(p.potm > 0 || i < 10) { 
+                let rankClass = (i===0) ? 'potm-rank-1' : '';
+                html += `<div class="potm-row"><div class="${rankClass}">${i+1}</div><div class="${rankClass}">${p.n}</div><div style="font-size:0.8em; color:#888;">${p.team}</div><div><span class="potm-count">${p.potm}</span></div></div>`;
+            }
+        });
+        content.innerHTML = html;
+    }
+
+    function generateSchedule() {
+        let teams = Object.keys(TEAM_DB);
+        let n = teams.length; 
+        for(let r=0; r<n; r++) schedule.push(makeRoundPairing(teams, r));
+    }
+    function makeRoundPairing(teams, roundNum) {
+        let shifted = [...teams];
+        for(let k=0; k<roundNum; k++) shifted.unshift(shifted.pop());
+        let matches = [];
+        for(let i=1; i<5; i++) matches.push({h: shifted[i], a: shifted[9-i]});
+        return matches;
+    }
+
+    function updateRoundUI() {
+        if (seasonState !== "REGULAR") { handlePostSeasonUI(); return; }
+        if (currentDayStep === 0) {
+            document.getElementById('round-display').innerText = `SEASON ${seasonCount} / WEEK ${currentWeek} - TRAINING`;
+            document.getElementById('match-subtitle').innerText = "훈련 및 정비 시간";
+            document.getElementById('match-title').innerText = "TEAM MANAGEMENT";
+            document.getElementById('train-desc-txt').innerText = "이번 주 경기를 위해 훈련 일정을 선택하십시오.";
+            switchPhase('ui-training');
+            return;
+        }
+        const daysText = ["", "Friday", "Saturday", "Sunday"];
+        const dayTxt = daysText[currentDayStep];
+        const roundIdx = (currentWeek - 1) * 3 + (currentDayStep - 1);
+        document.getElementById('round-display').innerText = `SEASON ${seasonCount} / WEEK ${currentWeek} - ${dayTxt}`;
+        document.getElementById('match-subtitle').innerText = `Round ${roundIdx + 1} / 9`;
+        const myM = schedule[roundIdx].find(m => m.h === myTeam || m.a === myTeam);
+        if (myM) {
+            currentMatch = myM;
+            const opp = (myM.h === myTeam) ? myM.a : myM.h;
+            document.getElementById('match-title').innerText = `VS ${opp}`;
+            document.getElementById('next-match-info').innerText = "매치 준비 완료";
+            document.getElementById('lobby-desc').innerText = "Bo5 정규 리그 경기입니다.";
+            document.getElementById('btn-start-match').innerText = "경기 시작";
+            document.getElementById('btn-start-match').onclick = startMatchSequence;
+            document.getElementById('btn-start-match').disabled = false;
+        } else {
+            currentMatch = null;
+            document.getElementById('match-title').innerText = "BYE DAY (휴식)";
+            document.getElementById('next-match-info').innerText = "경기 일정 없음";
+            document.getElementById('lobby-desc').innerText = "오늘 경기가 없습니다. 자동 진행됩니다 (체력 소폭 회복).";
+            document.getElementById('btn-start-match').innerText = "휴식 진행";
+            document.getElementById('btn-start-match').onclick = simByeRound; 
+            document.getElementById('btn-start-match').disabled = false;
+        }
+        switchPhase('ui-lobby');
+    }
+
+    function updateStandings() {
+        const tbody = document.getElementById('standings-body');
+        if(!tbody || Object.keys(leagueStats).length === 0) return;
+        tbody.innerHTML = "";
+        const sorted = Object.values(leagueStats).sort((a,b) => b.w - a.w || b.d - a.d);
+        let html = "";
+        sorted.forEach((s, i) => {
+            html += `<tr class="${s.name === myTeam ? 'my-team-row' : ''}"><td>${i+1}</td><td>${s.name}</td><td>${s.w}</td><td>${s.l}</td><td>${s.d}</td></tr>`;
+        });
+        tbody.innerHTML = html;
+    }
+
+    function handlePostSeasonUI() {
+        if (seasonState === "POST_BUFFER") {
+            document.getElementById('round-display').innerText = "POST SEASON PREP";
+            document.getElementById('match-subtitle').innerText = "시드 결정전 전날";
+            document.getElementById('match-title').innerText = "EXTRA TRAINING";
+            switchPhase('ui-training');
+        } else if (seasonState === "POST_SEED") {
+            setupPlayoffs();
+        } else if (seasonState === "POST_SEMI") {
+            document.getElementById('round-display').innerText = "PLAYOFFS - SATURDAY";
+            document.getElementById('match-subtitle').innerText = "SEMIFINALS";
+            if (playoffMatches.semiA.h === myTeam || playoffMatches.semiA.a === myTeam || 
+                playoffMatches.semiB.h === myTeam || playoffMatches.semiB.a === myTeam) {
+                let opp = (playoffMatches.semiA.h === myTeam) ? playoffMatches.semiA.a : 
+                          (playoffMatches.semiA.a === myTeam) ? playoffMatches.semiA.h : 
+                          (playoffMatches.semiB.h === myTeam) ? playoffMatches.semiB.a : playoffMatches.semiB.h;
+                document.getElementById('match-title').innerText = `VS ${opp}`;
+                document.getElementById('btn-start-match').innerText = "4강전 시작";
+                document.getElementById('btn-start-match').onclick = startMatchSequence;
+            } else {
+                document.getElementById('match-title').innerText = "ELIMINATED";
+                document.getElementById('lobby-desc').innerText = "4강 진출에 실패했습니다.";
+                document.getElementById('btn-start-match').innerText = "다음 시즌 준비";
+                document.getElementById('btn-start-match').onclick = prepareNextSeason; 
+            }
+            switchPhase('ui-lobby');
+        } else if (seasonState === "POST_FINAL") {
+            document.getElementById('round-display').innerText = "PLAYOFFS - SUNDAY";
+            document.getElementById('match-subtitle').innerText = "GRAND FINALS";
+            if (playoffMatches.final.h === myTeam || playoffMatches.final.a === myTeam) {
+                 let opp = (playoffMatches.final.h === myTeam) ? playoffMatches.final.a : playoffMatches.final.h;
+                 document.getElementById('match-title').innerText = `FINAL VS ${opp}`;
+                 document.getElementById('lobby-desc').innerText = "결승전 (Bo7)"; 
+                 document.getElementById('btn-start-match').innerText = "결승전 시작";
+                 document.getElementById('btn-start-match').onclick = startMatchSequence;
+            } else {
+                 document.getElementById('match-title').innerText = "SEASON FINALE";
+                 document.getElementById('lobby-desc').innerText = "이번 시즌이 종료되었습니다.";
+                 document.getElementById('btn-start-match').innerText = "다음 시즌 준비";
+                 document.getElementById('btn-start-match').onclick = prepareNextSeason;
+            }
+            switchPhase('ui-lobby');
+        }
+    }
+
+    function prepareNextSeason() {
+        if(confirm("이번 시즌을 종료하고 다음 시즌을 시작하시겠습니까?\n(선수 능력치는 유지됩니다)")) {
+            seasonCount++;
+            currentWeek = 1;
+            currentDayStep = 0;
+            seasonState = "REGULAR";
+            initLeague();
+        }
+    }
+
+    function runTraining(type) {
+        const roster = TEAM_DB[myTeam];
+        const chance = () => Math.random() < 0.1;
+
+        if(type === 'REST') { 
+            recoverAllStamina(30); 
+            log("전원 휴식 완료. 체력 +30"); 
+        } 
+        else if(type === 'HERO') {
+            const pName = document.getElementById('train-p-select').value;
+            const hName = document.getElementById('train-h-select').value;
+            const player = roster.find(p=>p.n === pName);
+            
+            if(!player.practiceProgress[hName]) player.practiceProgress[hName] = 0;
+            player.practiceProgress[hName]++;
+            let count = player.practiceProgress[hName];
+            
+            let req = (player.trait === "다재다능") ? 2 : 3;
+
+            if(count >= req) {
+                if(!player.ms.includes(hName)) { player.ms.push(hName); log(`[경축] ${pName} 선수 ${hName} 모스트 등록!`); }
+                else log(`${pName} 선수는 이미 ${hName} 장인입니다.`);
+            } else log(`${pName}: ${hName} 연습 완료 (${count}/${req})`);
+            
+            recoverAllStamina(10);
+        } else {
+            let statMap = {'AIM':'a', 'SENSE':'s', 'MENTAL':'m', 'TEAM':'t'};
+            let traitMap = {'AIM':'유망주', 'SENSE':'베테랑', 'MENTAL':'소년가장', 'TEAM':'분위기메이커'};
+            
+            let key = statMap[type];
+            let targetTrait = traitMap[type];
+            let bonusMsg = "";
+
+            roster.forEach(p => {
+                let gain = 1;
+                if(p.trait === targetTrait && chance()) {
+                    gain = 2;
+                    bonusMsg = ` (${p.n} 특성 발동!)`;
+                }
+                if(p[key] < 99) p[key] = Math.min(99, p[key] + gain);
+            });
+            
+            recoverAllStamina(10);
+            log(`[훈련] 팀 전체 ${type} 훈련 완료.${bonusMsg} 체력 +10`);
+        }
+        if (seasonState === "REGULAR") currentDayStep = 1; 
+        else if (seasonState === "POST_BUFFER") seasonState = "POST_SEED"; 
+        else if (seasonState === "POST_SEED_TRAIN") { runSeedMatchesSimOnly(); seasonState = "POST_SEMI"; }
+        updateRoundUI();
+    }
+
+    function simByeRound() {
+        const roundIdx = (currentWeek - 1) * 3 + (currentDayStep - 1);
+        schedule[roundIdx].forEach(m => {
+            if (m.h !== myTeam && m.a !== myTeam) {
+                let s1 = Math.floor(Math.random()*4);
+                let s2 = s1===3 ? Math.floor(Math.random()*3) : 3;
+                let winner = s1 > s2 ? m.h : m.a;
+                calcMatchPOTM(winner);
+                recordStats(m.h, m.a, s1, s2);
+            }
+        });
+        recoverAllStamina(5);
+        log(`[휴식일] 자동 진행 완료. 체력 +5 회복.`);
+        advanceDay();
+    }
+
+    function advanceDay() {
+        if (seasonState === "REGULAR") {
+            currentDayStep++;
+            if (currentDayStep > 3) {
+                currentWeek++;
+                currentDayStep = 0; 
+                if (currentWeek > 3) {
+                    seasonState = "POST_BUFFER";
+                    currentDayStep = 0; 
+                    log("정규 시즌 종료! 포스트 시즌 준비.");
+                }
+            }
+        }
+        updateRoundUI();
+        updateStandings();
+    }
+
+    function startMatchSequence() {
+        setScores = [0, 0];
+        currentSet = 1;
+        bans = {my:[], opp:[]};
+        lastBanRole = { my: null, opp: null }; 
+        playedMaps = [];
+        playerSetCounts = {}; // Reset participation
+        
+        if(seasonState === "REGULAR") {
+            const roundIdx = (currentWeek - 1) * 3 + (currentDayStep - 1);
+            schedule[roundIdx].forEach(m => {
+                if (m.h !== myTeam && m.a !== myTeam) {
+                    let s1 = Math.floor(Math.random()*4);
+                    let s2 = s1===3 ? Math.floor(Math.random()*3) : 3;
+                    let winner = s1 > s2 ? m.h : m.a;
+                    calcMatchPOTM(winner);
+                    recordStats(m.h, m.a, s1, s2);
+                }
+            });
+        }
+        updateScoreBoard();
+        startSet();
+    }
+
+    function calcMatchPOTM(winnerTeam) {
+        if(!TEAM_DB[winnerTeam]) return "Unknown";
+        const roster = TEAM_DB[winnerTeam];
+        let bestScore = -1;
+        let bestPlayer = null;
+        
+        let candidates = roster;
+        if (winnerTeam === myTeam && Object.keys(playerSetCounts).length > 0) {
+             candidates = roster.filter(p => playerSetCounts[p.n] > 0);
+        }
+
+        candidates.forEach(p => {
+            let setBonus = (winnerTeam === myTeam) ? (playerSetCounts[p.n] || 0) * 5 : 0;
+            let score = (p.a + p.s + p.m + p.t) + (Math.random() * 50) + setBonus; 
+            if(score > bestScore) { bestScore = score; bestPlayer = p; }
+        });
+        
+        if(bestPlayer) { bestPlayer.potm++; return bestPlayer.n; }
+        return "Unknown";
+    }
+
+    function startSet() {
+        let maxSets = (seasonState === 'POST_FINAL') ? 7 : 5;
+        document.getElementById('set-score-txt').innerText = `SET ${currentSet} (Bo${maxSets})`;
+        bans = {my:[], opp:[]}; 
+        
+        switchPhase('ui-map');
+        const modes = ["쟁탈","혼합","플래시","밀기","호위"];
+        let modeIndex = (currentSet - 1) % 5;
+        const mode = modes[modeIndex];
+        const selector = document.getElementById('map-select');
+        selector.innerHTML = "";
+        
+        let userPicks = (currentSet === 1 || setWinner === 1);
+        let pool = MAP_POOLS[mode].filter(m => !playedMaps.includes(m));
+        if(pool.length === 0) pool = MAP_POOLS[mode]; 
+
+        if(userPicks) {
+            document.getElementById('map-msg').innerText = `[패자 선택권] ${mode} 맵을 선택하십시오.`;
+            pool.forEach(m => selector.innerHTML += `<option>${m}</option>`);
+            document.querySelector('#ui-map button').disabled = false;
+        } else {
+            let aiMap = pool[Math.floor(Math.random()*pool.length)];
+            currentMap = aiMap;
+            document.getElementById('map-msg').innerText = `상대팀이 ${aiMap}을 선택했습니다.`;
+            selector.innerHTML = `<option>${aiMap}</option>`;
+            document.querySelector('#ui-map button').disabled = true;
+            setTimeout(confirmMap, 1500);
+        }
+    }
+
+    function confirmMap() {
+        if(!document.querySelector('#ui-map button').disabled) currentMap = document.getElementById('map-select').value;
+        playedMaps.push(currentMap);
+        log(`[MAP] ${currentSet}세트 전장: ${currentMap}`);
+        setupRosterCheck();
+    }
+
+    function setupRosterCheck() {
+        switchPhase('ui-roster');
+        let meta = MAP_META[currentMap] || {type:"General", good:[], bad:[]};
+        document.getElementById('map-meta-roster').innerHTML = `Map Type: <strong>${meta.type}</strong>`;
+        const el = document.getElementById('roster-slots');
+        el.innerHTML = "";
+        const roles = ["TANK","DPS","DPS","SUP","SUP"];
+        const myRoster = TEAM_DB[myTeam];
+        roles.forEach((r, i) => {
+            let pSel = `<select id="rp${i}">`;
+            myRoster.filter(p=>p.r===r).forEach(p => pSel += `<option value="${p.n}">${p.n} (${p.hp}%)</option>`);
+            pSel += `</select>`;
+            el.innerHTML += pSel;
+        });
+        document.getElementById('roster-opp-display').innerText = "(Waiting for your confirmation...)";
+    }
+
+    function confirmRoster() {
+        myLockedPlayers = [];
+        for(let i=0; i<5; i++) {
+            let val = document.getElementById(`rp${i}`).value;
+            if(myLockedPlayers.includes(val)) { alert("중복 선수!"); return; }
+            myLockedPlayers.push(val);
+        }
+        
+        generateOpponentPlayers();
+        let oppHtml = "";
+        oppLockedPlayers.forEach(p => {
+            oppHtml += `<div style="background:#333; margin:5px; padding:5px; border-radius:4px;">${p.n} <span style="font-size:0.8em; color:#888;">(${p.r})</span></div>`;
+        });
+        document.getElementById('roster-opp-display').innerHTML = oppHtml;
+        log("[LINEUP] 양 팀 로스터 확정.");
+        setTimeout(setupHeroBan, 1500);
+    }
+
+    function generateOpponentPlayers() {
+        let oppTeamName = getCurrentOpponentName();
+        if(!oppTeamName || !TEAM_DB[oppTeamName]) {
+            let allTeams = Object.keys(TEAM_DB).filter(t => t !== myTeam);
+            oppTeamName = allTeams[0];
+        }
+
+        const oppRoster = TEAM_DB[oppTeamName];
+        const roles = ["TANK","DPS","DPS","SUP","SUP"];
+        oppLockedPlayers = []; 
+        let usedPlayers = [];
+        roles.forEach(r => {
+            let availablePlayers = oppRoster.filter(p => p.r === r && !usedPlayers.includes(p.n));
+            if(availablePlayers.length === 0) availablePlayers = oppRoster.filter(p => p.r === r);
+            let pickP = availablePlayers[Math.floor(Math.random()*availablePlayers.length)];
+            usedPlayers.push(pickP.n);
+            oppLockedPlayers.push(pickP);
+        });
+    }
+
+    function setupHeroBan() {
+        switchPhase('ui-ban');
+        let oppListHtml = "";
+        oppLockedPlayers.forEach(p => oppListHtml += `<div>${p.n}</div>`);
+        document.getElementById('ban-phase-opp-list').innerHTML = oppListHtml;
+        const s = document.getElementById('ban-select');
+        s.innerHTML = "";
+        
+        if(lastBanRole.my) log(`[BAN RULE] 이번 세트 우리 팀은 '${lastBanRole.my}' 밴 불가.`);
+        
+        ["TANK","DPS","SUP"].forEach(r => {
+            if (lastBanRole.my === r) return; 
+            HEROES[r].forEach(h => {
+                if(!bans.my.includes(h.n)) s.innerHTML += `<option value="${h.n}">[${r}] ${h.n}</option>`;
+            });
+        });
+        document.getElementById('opp-ban-display').innerText = "-";
+    }
+
+    function confirmBan() {
+        let mb = document.getElementById('ban-select').value;
+        bans.my.push(mb);
+        let myRole = getHeroRole(mb);
+        lastBanRole.my = myRole; 
+        
+        let pool = [];
+        ["TANK","DPS","SUP"].forEach(r => {
+            if(r === myRole) return; 
+            if(r === lastBanRole.opp) return; 
+            HEROES[r].forEach(h => { if(!bans.opp.includes(h.n)) pool.push(h.n); });
+        });
+        
+        if(pool.length === 0) {
+             ["TANK","DPS","SUP"].forEach(r => {
+                if(r === myRole) return;
+                HEROES[r].forEach(h => { if(!bans.opp.includes(h.n)) pool.push(h.n); });
+            });
+        }
+
+        let ab = pool[Math.floor(Math.random()*pool.length)];
+        bans.opp.push(ab);
+        lastBanRole.opp = getHeroRole(ab);
+        
+        document.getElementById('opp-ban-display').innerText = `🚫 ${ab}`;
+        log(`[BAN] My: ${mb} | Opp: ${ab}`);
+        setTimeout(setupHeroPick, 1000);
+    }
+
+    function setupHeroPick() {
+        switchPhase('ui-pick');
+        const el = document.getElementById('pick-slots');
+        el.innerHTML = "";
+        myLockedPlayers.forEach((pName, i) => {
+            let pObj = TEAM_DB[myTeam].find(p=>p.n===pName);
+            let role = pObj.r;
+            let html = `<div style="margin-bottom:10px;">
+                <div style="font-weight:bold; color:var(--ow-orange);">${pName} (${role})</div>
+                <select id="hpick${i}">`;
+            
+            HEROES[role].filter(h => !bans.my.includes(h.n) && !bans.opp.includes(h.n)).forEach(h => {
+                html += `<option value="${h.n}">${h.n}</option>`;
+            });
+
+            html += `</select></div>`;
+            el.innerHTML += html;
+        });
+        generateOpponentHeroes();
+    }
+
+    function generateOpponentHeroes() {
+        oppHeroPicks = [];
+        let usedHeroes = [];
+        oppLockedPlayers.forEach(p => {
+            let role = p.r;
+            let availableHeroes = HEROES[role].filter(h => !bans.opp.includes(h.n) && !bans.my.includes(h.n) && !usedHeroes.includes(h.n));
+            if(availableHeroes.length === 0) availableHeroes = HEROES[role].filter(h => !bans.opp.includes(h.n) && !bans.my.includes(h.n)); 
+
+            let pickH = availableHeroes[Math.floor(Math.random()*availableHeroes.length)];
+            if(!pickH) pickH = HEROES[role][0];
+
+            usedHeroes.push(pickH.n);
+            oppHeroPicks.push({ player: p, hero: pickH.n });
+        });
+        const disp = document.getElementById('opp-entry-display');
+        disp.innerHTML = "";
+        oppLockedPlayers.forEach(p => {
+            disp.innerHTML += `<div class="opp-card"><div>${p.n}</div><div class="opp-hero hidden">?????</div></div>`;
+        });
+    }
+
+    function runSimulation() {
+        let myHs = [];
+        for(let i=0; i<5; i++) {
+            let h = document.getElementById(`hpick${i}`).value;
+            if(myHs.includes(h)) { alert("중복 영웅 불가!"); return; }
+            myHs.push(h);
+        }
+        const disp = document.getElementById('opp-entry-display');
+        disp.innerHTML = "";
+        oppHeroPicks.forEach(o => {
+            disp.innerHTML += `<div class="opp-card"><div>${o.player.n}</div><div class="opp-hero" style="color:var(--ban-red);">${o.hero}</div></div>`;
+        });
+        
+        let meta = MAP_META[currentMap] || {type:"General", good:[], bad:[]};
+        let logEvents = []; 
+        
+        function calcTeamPower(playerNames, heroes, isMyTeam) {
+            let totalPower = 0;
+            let teamAvgTeamwork = 0;
+            let teamCompCount = 0;
+
+            let players = [];
+            if(isMyTeam) players = playerNames.map(n => TEAM_DB[myTeam].find(p=>p.n===n));
+            else players = playerNames.map(o => o.player);
+
+            let moodMakerCount = players.filter(p => p.trait === "분위기메이커").length;
+            let mistakeReduction = moodMakerCount * 0.5;
+
+            let myScore = isMyTeam ? setScores[0] : setScores[1];
+            let oppScore = isMyTeam ? setScores[1] : setScores[0];
+            let isBehind = myScore < oppScore;
+
+            players.forEach((p, idx) => {
+                let hName = isMyTeam ? heroes[idx] : heroes[idx].hero;
+                
+                let bonus = (p.trait === "소년가장" && isBehind) ? 2 : 0;
+                let t_a = p.a + bonus; 
+                let t_s = p.s + bonus; 
+                let t_m = p.m + bonus; 
+                let t_t = p.t + bonus;
+
+                let val = (t_a * 0.4) + (t_s * 0.3) + (t_m * 0.15) + (t_t * 0.15);
+                
+                let simHp = isMyTeam ? p.hp : (80 + Math.random()*20);
+                val *= (0.9 + (simHp/1000));
+
+                if(p.ms.includes(hName)) val += 5;
+                if(meta.good.includes(hName)) val += 5;
+                if(meta.bad.includes(hName)) val -= 5;
+                let hData = HEROES[p.r].find(h=>h.n===hName);
+                if(hData && hData.t === meta.type) { val += 3; teamCompCount++; }
+
+                let mistakeChance = ((100 - t_m) / 3) * (1 - (mistakeReduction * 0.2)); 
+                let roll = Math.random() * 100;
+                
+                if (roll < mistakeChance) {
+                    val *= 0.7; 
+                    logEvents.push({ type: 'mistake', team: isMyTeam ? 'MY' : 'OPP', player: p.n, hero: hName });
+                } 
+                else {
+                    let crackThreshold = 0.15;
+                    if (p.trait === "베테랑") crackThreshold = 0.25; 
+
+                    if (t_a > 92 && t_s > 92 && Math.random() < crackThreshold) {
+                        val *= 1.25; 
+                        logEvents.push({ type: 'crack', team: isMyTeam ? 'MY' : 'OPP', player: p.n, hero: hName });
+                    }
+                }
+
+                totalPower += val;
+                teamAvgTeamwork += t_t;
+            });
+
+            if(teamCompCount >= 3) totalPower += 10;
+            return { power: totalPower, avgTeamwork: teamAvgTeamwork / 5 };
+        }
+
+        let myStats = calcTeamPower(myLockedPlayers, myHs, true);
+        let oppStats = calcTeamPower(oppHeroPicks, oppHeroPicks, false);
+
+        let myFinalPower = myStats.power;
+        let oppFinalPower = oppStats.power;
+
+        let diff = myFinalPower - oppFinalPower;
+        let winningTeam = diff > 0 ? 'MY' : 'OPP';
+
+        if (Math.abs(diff) < 30) { 
+            if (winningTeam === 'OPP' && myStats.avgTeamwork > oppStats.avgTeamwork) {
+                let twDiff = myStats.avgTeamwork - oppStats.avgTeamwork;
+                let bonus = twDiff * 2.5; 
+                myFinalPower += bonus;
+                logEvents.push({ type: 'comeback', team: 'MY' });
+            } 
+            else if (winningTeam === 'MY' && oppStats.avgTeamwork > myStats.avgTeamwork) {
+                let twDiff = oppStats.avgTeamwork - myStats.avgTeamwork;
+                let bonus = twDiff * 2.5;
+                oppFinalPower += bonus;
+                logEvents.push({ type: 'comeback', team: 'OPP' });
+            }
+        }
+
+        let isWin = myFinalPower > oppFinalPower;
+
+        function getSkillName(hName) { return HERO_SKILLS[hName] || "궁극기"; }
+        function parseMsg(template, pName, hName) {
+            let skill = getSkillName(hName);
+            return template.replace(/{player}/g, pName).replace(/{hero}/g, hName).replace(/{skill}/g, skill);
+        }
+
+        let logHTML = `<div style="margin-top:10px; border-top:1px dashed #444; padding-top:5px; color:#aaa;">--- ${currentSet}세트 중계 ---</div>`;
+        logHTML += `<div class="log-caster">"${COMMENTARY_DB.OPENING[Math.floor(Math.random()*COMMENTARY_DB.OPENING.length)]}"</div>`;
+
+        if (logEvents.length > 0) {
+            logEvents.forEach(ev => {
+                let teamColor = ev.team === 'MY' ? 'var(--ow-orange)' : 'var(--ban-red)';
+                if(ev.type === 'mistake') {
+                    let tpl = COMMENTARY_DB.MISTAKE[Math.floor(Math.random()*COMMENTARY_DB.MISTAKE.length)];
+                    let msg = parseMsg(tpl, ev.player, ev.hero);
+                    logHTML += `<div><span style="color:${teamColor};">▶</span> <span class="log-mistake">${msg}</span></div>`;
+                } else if (ev.type === 'crack') {
+                    let tpl = COMMENTARY_DB.CRACK[Math.floor(Math.random()*COMMENTARY_DB.CRACK.length)];
+                    let msg = parseMsg(tpl, ev.player, ev.hero);
+                    logHTML += `<div><span style="color:${teamColor};">▶</span> <span class="log-crack">${msg}</span></div>`;
+                } else if (ev.type === 'comeback') {
+                    let tpl = COMMENTARY_DB.TEAMWORK_COMEBACK[Math.floor(Math.random()*COMMENTARY_DB.TEAMWORK_COMEBACK.length)];
+                    let teamName = ev.team === 'MY' ? '아군' : '상대팀';
+                    logHTML += `<div class="log-teamwork" style="color:${teamColor};">"${teamName}, ${tpl}" (팀워크 발동)</div>`;
+                }
+            });
+        } else {
+            let rIdx = Math.floor(Math.random()*5);
+            let pName = myLockedPlayers[rIdx];
+            let hName = myHs[rIdx];
+            logHTML += `<div>**${pName}**의 **${hName}**와 상대의 치열한 교전이 계속됩니다.</div>`;
+        }
+
+        if (!logEvents.some(e=>e.type==='comeback') && Math.abs(myFinalPower - oppFinalPower) > 50) {
+             let tpl = COMMENTARY_DB.TEAMWORK_FAIL[Math.floor(Math.random()*COMMENTARY_DB.TEAMWORK_FAIL.length)];
+             logHTML += `<div class="log-caster">"${tpl} 일방적인 경기입니다."</div>`;
+        }
+
+        if(isWin) { 
+            setScores[0]++; setWinner = 0; 
+            logHTML += `<div class="log-win" style="font-size:1.1em; margin-top:5px;">>> ${currentSet}세트 승리! (점수차: ${Math.floor(myFinalPower-oppFinalPower)})</div>`; 
+        } else { 
+            setScores[1]++; setWinner = 1; 
+            logHTML += `<div class="log-lose" style="font-size:1.1em; margin-top:5px;">>> ${currentSet}세트 패배... (점수차: ${Math.floor(oppFinalPower-myFinalPower)})</div>`; 
+        }
+        
+        const logWin = document.getElementById('log-window');
+        logWin.innerHTML += logHTML;
+        logWin.scrollTop = logWin.scrollHeight;
+
+        myLockedPlayers.forEach(n => {
+            playerSetCounts[n] = (playerSetCounts[n] || 0) + 1;
+        });
+
+        updateScoreBoard();
+        let winTarget = (seasonState === 'POST_FINAL') ? 4 : 3;
+        if(setScores[0]===winTarget || setScores[1]===winTarget) endMatch(); 
+        else { currentSet++; setTimeout(startSet, 2500); }
+    }
+
+    function endMatch() {
+        let winTarget = (seasonState === 'POST_FINAL') ? 4 : 3;
+        let won = setScores[0] === winTarget;
+        let opp = getCurrentOpponentName();
+        let winnerTeam = won ? myTeam : opp;
+        
+        let potmName = calcMatchPOTM(winnerTeam);
+        
+        log(`매치 종료. ${won ? '승리' : '패배'}.`);
+        log(`<span class="log-potm">★ POTM: ${potmName} (${winnerTeam})</span>`);
+
+        let totalSets = setScores[0] + setScores[1];
+        Object.keys(playerSetCounts).forEach(pName => {
+            let setsPlayed = playerSetCounts[pName];
+            let ratio = setsPlayed / totalSets;
+            
+            let p = TEAM_DB[myTeam].find(x=>x.n===pName);
+            if(p) {
+                let baseLoss = (p.trait === "유망주") ? 6 : 9; 
+                let loss = Math.round(ratio * baseLoss);
+                p.hp = Math.max(0, p.hp - loss);
+            }
+        });
+
+        if (seasonState === "REGULAR") {
+            recordStats(myTeam, opp, setScores[0], setScores[1]);
+            advanceDay();
+        } else if (seasonState === "POST_SEMI") {
+            if(won) {
+                let otherSemi = (playoffMatches.semiA.h === myTeam || playoffMatches.semiA.a === myTeam) ? playoffMatches.semiB : playoffMatches.semiA;
+                let wOther = Math.random() > 0.5 ? otherSemi.h : otherSemi.a;
+                calcMatchPOTM(wOther); 
+                playoffMatches.final = {h: myTeam, a: wOther};
+                log(`[결승 상대] ${wOther} 팀이 올라왔습니다.`);
+            } else { playoffMatches.final = {h: "Team A", a: "Team B"}; }
+            seasonState = "POST_FINAL";
+            setTimeout(updateRoundUI, 2000);
+        } else if (seasonState === "POST_FINAL") {
+            if (won) {
+                document.getElementById('ending-screen').style.display = 'flex';
+            } else {
+                log(`결승전 종료. 준우승.`);
+                document.getElementById('btn-start-match').innerText = "다음 시즌 준비";
+                document.getElementById('btn-start-match').onclick = prepareNextSeason;
+            }
+        }
+    }
+
+    function setupPlayoffs() {
+        if(seasonState === "POST_SEED") {
+            document.getElementById('match-title').innerText = "POST-SEASON";
+            document.getElementById('round-display').innerText = "PLAYOFFS - FRIDAY";
+            document.getElementById('lobby-desc').innerText = "3~6위 시드 결정전 진행일입니다.";
+            let sorted = Object.values(leagueStats).sort((a,b) => b.w - a.w || b.d - a.d);
+            playoffMatches.seedA = {h: sorted[2].name, a: sorted[5].name};
+            playoffMatches.seedB = {h: sorted[3].name, a: sorted[4].name};
+            playoffMatches.rank1 = sorted[0].name;
+            playoffMatches.rank2 = sorted[1].name;
+            
+            if (playoffMatches.rank1 === myTeam || playoffMatches.rank2 === myTeam) {
+                seasonState = "POST_SEED_TRAIN"; 
+                document.getElementById('match-subtitle').innerText = "상위 시드(1-2위) 특전";
+                document.getElementById('match-title').innerText = "BYE & TRAINING";
+                document.getElementById('train-desc-txt').innerText = "시드 결정전 동안 휴식/훈련 가능.";
+                switchPhase('ui-training');
+            } else {
+                const isInSeedA = (playoffMatches.seedA.h === myTeam || playoffMatches.seedA.a === myTeam);
+                const isInSeedB = (playoffMatches.seedB.h === myTeam || playoffMatches.seedB.a === myTeam);
+                if (isInSeedA || isInSeedB) {
+                    document.getElementById('btn-start-match').innerText = "시드전 시작";
+                    document.getElementById('btn-start-match').onclick = runSeedMatches;
+                    switchPhase('ui-lobby');
+                } else {
+                    document.getElementById('match-title').innerText = "SEASON ENDED";
+                    document.getElementById('lobby-desc').innerText = "플레이오프 진출에 실패했습니다.";
+                    document.getElementById('btn-start-match').style.display = 'block';
+                    document.getElementById('btn-start-match').innerText = "다음 시즌 준비";
+                    document.getElementById('btn-start-match').onclick = prepareNextSeason;
+                    switchPhase('ui-lobby');
+                }
+            }
+        }
+    }
+    function runSeedMatches() {
+        let winA = Math.random()>0.5 ? playoffMatches.seedA.h : playoffMatches.seedA.a;
+        calcMatchPOTM(winA);
+        let winB = Math.random()>0.5 ? playoffMatches.seedB.h : playoffMatches.seedB.a;
+        calcMatchPOTM(winB);
+        playoffMatches.winnerA = winA;
+        playoffMatches.winnerB = winB;
+        log(`[시드전 결과] ${winA}, ${winB} 승리.`);
+        if (playoffMatches.rank1 === myTeam) {
+            document.getElementById('lobby-desc').innerText = "1위 특전: 4강 상대를 지명하십시오.";
+            document.getElementById('selection-area').style.display = 'block';
+            let box = document.getElementById('pick-opponent-btns');
+            box.innerHTML = "";
+            [winA, winB].forEach(t => {
+                let b = document.createElement('button');
+                b.className = 'action-btn'; b.style.fontSize = "0.9em"; b.style.padding = "10px"; b.innerText = t;
+                b.onclick = () => confirmPick(t); box.appendChild(b);
+            });
+            document.getElementById('btn-start-match').style.display = 'none';
+        } else {
+            let picked = Math.random()>0.5 ? winA : winB;
+            let other = (picked === winA) ? winB : winA;
+            log(`${playoffMatches.rank1} 팀이 ${picked}를 지명했습니다.`);
+            playoffMatches.semiA = {h: playoffMatches.rank1, a: picked};
+            playoffMatches.semiB = {h: playoffMatches.rank2, a: other};
+            seasonState = "POST_SEMI";
+            updateRoundUI();
+        }
+    }
+    function runSeedMatchesSimOnly() {
+        let winA = Math.random()>0.5 ? playoffMatches.seedA.h : playoffMatches.seedA.a;
+        calcMatchPOTM(winA);
+        let winB = Math.random()>0.5 ? playoffMatches.seedB.h : playoffMatches.seedB.a;
+        calcMatchPOTM(winB);
+        playoffMatches.winnerA = winA; playoffMatches.winnerB = winB;
+        log(`[시드전 결과] ${winA}, ${winB} 승리.`);
+        if (playoffMatches.rank1 === myTeam) {
+             seasonState = "POST_PICK"; showPickUI([winA, winB]); return;
+        } else {
+            let picked = Math.random()>0.5 ? winA : winB;
+            let other = (picked === winA) ? winB : winA;
+            log(`${playoffMatches.rank1} 팀이 ${picked}를 지명했습니다.`);
+            playoffMatches.semiA = {h: playoffMatches.rank1, a: picked};
+            playoffMatches.semiB = {h: playoffMatches.rank2, a: other};
+        }
+    }
+    function showPickUI(winners) {
+        document.getElementById('round-display').innerText = "PLAYOFFS - FRIDAY NIGHT";
+        document.getElementById('match-subtitle').innerText = "OPPONENT SELECTION";
+        document.getElementById('match-title').innerText = "PICK PHASE";
+        switchPhase('ui-lobby');
+        document.getElementById('lobby-desc').innerText = "1위 특전: 4강 상대를 지명하십시오.";
+        document.getElementById('selection-area').style.display = 'block';
+        let box = document.getElementById('pick-opponent-btns');
+        box.innerHTML = "";
+        winners.forEach(t => {
+            let b = document.createElement('button');
+            b.className = 'action-btn'; b.style.fontSize = "0.9em"; b.style.padding = "10px"; b.innerText = t;
+            b.onclick = () => confirmPick(t); box.appendChild(b);
+        });
+        document.getElementById('btn-start-match').style.display = 'none';
+    }
+    function confirmPick(opp) {
+        document.getElementById('selection-area').style.display = 'none';
+        document.getElementById('btn-start-match').style.display = 'block';
+        let other = (opp === playoffMatches.winnerA) ? playoffMatches.winnerB : playoffMatches.winnerA;
+        playoffMatches.semiA = {h: myTeam, a: opp};
+        playoffMatches.semiB = {h: playoffMatches.rank2, a: other};
+        seasonState = "POST_SEMI";
+        updateRoundUI();
+    }
+    function recoverAllStamina(amount) { Object.values(TEAM_DB).forEach(roster => roster.forEach(p => p.hp = Math.min(100, p.hp + amount))); }
+    function recordStats(h, a, s1, s2) { leagueStats[h].w += (s1>s2?1:0); leagueStats[h].l += (s1>s2?0:1); leagueStats[h].d += (s1-s2); leagueStats[a].w += (s2>s1?1:0); leagueStats[a].l += (s2>s1?0:1); leagueStats[a].d += (s2-s1); }
+    function switchPhase(id) { document.querySelectorAll('.ui-phase').forEach(e => e.classList.remove('active-phase')); document.getElementById(id).classList.add('active-phase'); }
+    function updateScoreBoard() { document.getElementById('sc-my').innerText = setScores[0]; document.getElementById('sc-opp').innerText = setScores[1]; }
+    function log(m) { const l = document.getElementById('log-window'); l.innerHTML += `<div>> ${m}</div>`; l.scrollTop = l.scrollHeight; }
+</script>
+</body>
+</html>

@@ -2,23 +2,69 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>옵챔스 감독 시뮬레이터</title>
     <style>
         :root { --ow-orange: #f99e1a; --ow-blue: #405275; --dark-bg: #121418; --card-bg: #1e2329; --accent: #00ffcc; --ban-red: #ff5e57; --good-green: #2ecc71; --stamina: #e1b12c; --gold: #ffd700; }
-        body { background: var(--dark-bg); color: white; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; margin: 0; padding: 0; font-size: 14px; overflow: hidden; }
+        body { background: var(--dark-bg); color: white; font-family: 'Pretendard', sans-serif; margin: 0; padding: 0; font-size: 14px; overflow: hidden; }
         
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
 
-        #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        /* SCREENS */
+        .full-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 9000; display: none; flex-direction: column; justify-content: center; align-items: center; }
+        #start-screen { display: flex; z-index: 9999; }
+        
         .team-btn { background: #333; color: white; border: 1px solid #555; padding: 15px 30px; margin: 5px; cursor: pointer; font-size: 1.1em; width: 200px; transition: 0.2s; }
         .team-btn:hover { background: var(--ow-orange); color: black; border-color: var(--ow-orange); }
         .load-btn { background: #2b313a; color: var(--accent); border: 1px solid var(--accent); padding: 15px 30px; margin-top: 20px; cursor: pointer; font-size: 1.2em; width: 300px; font-weight: bold; transition: 0.2s; display: none; }
-        .load-btn:hover { background: var(--accent); color: black; box-shadow: 0 0 15px var(--accent); }
-
-        #layout { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
         
+        /* MODE SELECT */
+        .mode-card { background: #222; border: 2px solid #444; padding: 30px; margin: 20px; width: 300px; text-align: center; cursor: pointer; border-radius: 10px; transition: 0.3s; }
+        .mode-card:hover { border-color: var(--ow-orange); background: #2a2a2a; transform: translateY(-5px); }
+        .mode-title { font-size: 1.5em; font-weight: bold; color: var(--ow-orange); margin-bottom: 10px; }
+        .mode-desc { color: #aaa; line-height: 1.4; }
+
+        /* DRAFT SCREEN */
+        #draft-screen { z-index: 9500; display: none; flex-direction: column; justify-content: flex-start; padding-top: 20px; overflow-y: auto; background: #111; }
+        
+        .draft-layout { 
+            display: grid; 
+            grid-template-columns: 250px 1fr 300px; 
+            gap: 15px; 
+            width: 98%; 
+            height: 85vh; 
+            margin-top: 15px; 
+        }
+        
+        .draft-col { background: #1e1e1e; border: 1px solid #333; padding: 10px; overflow-y: auto; border-radius: 8px; display: flex; flex-direction: column; }
+        .draft-col h3 { color: #ccc; border-bottom: 1px solid #555; padding-bottom: 10px; margin-top: 0; font-size: 1.1em; text-align: center; }
+        .draft-my-area { border-color: var(--ow-orange); }
+        .draft-history-area { border-color: #555; background: #151515; }
+
+        .pool-filter-btn { background: #333; border: 1px solid #555; color: white; padding: 5px 15px; cursor: pointer; margin-right: 5px; }
+        .pool-filter-btn.active { background: var(--ow-orange); color: black; border-color: var(--ow-orange); }
+        
+        .draft-card { background: #333; margin-bottom: 8px; padding: 10px; border-radius: 4px; display: grid; grid-template-columns: 50px 100px 1fr 60px; align-items: center; cursor: pointer; transition: 0.2s; border: 1px solid transparent; }
+        .draft-card:hover { border-color: var(--accent); background: #444; }
+        .draft-card.picked { display: none; } 
+        .draft-card.disabled { opacity: 0.3; pointer-events: none; filter: grayscale(1); border: 1px solid #555; }
+        
+        .role-badge { font-size: 0.8em; padding: 2px 6px; border-radius: 4px; text-align: center; font-weight: bold; }
+        .rb-tank { background: #2c3e50; color: #3498db; border: 1px solid #3498db; }
+        .rb-dps { background: #3e2723; color: #e74c3c; border: 1px solid #e74c3c; }
+        .rb-sup { background: #1b5e20; color: #2ecc71; border: 1px solid #2ecc71; }
+
+        #turn-indicator { padding: 10px; background: #222; margin-top: 10px; border-radius: 5px; text-align: center; color: #aaa; border: 1px solid #444; width: 95%; align-self: center; }
+        .turn-active { color: var(--accent); font-weight: bold; border-color: var(--accent) !important; background: #2b313a !important; }
+
+        .hist-item { padding: 6px; border-bottom: 1px solid #333; font-size: 0.9em; display:flex; justify-content: space-between; align-items: center; }
+        .hist-team { font-weight: bold; color: #aaa; width: 80px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        .hist-player { color: white; }
+        .hist-item.my-pick .hist-team { color: var(--ow-orange); }
+        .hist-item.my-pick .hist-player { color: var(--accent); font-weight: bold; }
+
+        /* MAIN LAYOUT */
+        #layout { display: grid; grid-template-columns: 320px 1fr; height: 100vh; }
         .sidebar { background: #181b21; border-right: 1px solid #333; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; position: relative; z-index: 10; }
         .league-table { width: 100%; border-collapse: collapse; font-size: 0.85em; margin-bottom: 20px; }
         .league-table th { color: var(--ow-orange); border-bottom: 2px solid #444; padding: 8px 4px; }
@@ -74,19 +120,6 @@
         .opp-hero { font-weight:bold; color: var(--ban-red); font-size: 0.9em; transition: all 0.5s ease; }
         .opp-hero.hidden { color: #555; letter-spacing: 2px; }
 
-        .meta-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; margin-right: 5px; margin-bottom: 5px; }
-        .good-tag { background: rgba(46, 204, 113, 0.2); color: #2ecc71; border: 1px solid #2ecc71; }
-        .bad-tag { background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid #e74c3c; }
-
-        #log-window { height: 250px; background: #000; border-top: 2px solid var(--ow-orange); margin-top: 20px; padding: 10px; font-family: 'Consolas', monospace; overflow-y: auto; font-size: 0.9em; color: #eee; line-height: 1.6; }
-        .log-win { color: var(--accent); } .log-lose { color: var(--ban-red); }
-        .log-potm { color: var(--gold); font-weight: bold; }
-        .log-skill { color: #f1c40f; font-weight: bold; }
-        .log-caster { color: #3498db; }
-        .log-mistake { color: #e74c3c; font-weight: bold; text-decoration: underline; }
-        .log-crack { color: #00ffcc; font-weight: bold; font-style: italic; }
-        .log-teamwork { color: #e1b12c; font-weight: bold; }
-
         /* ENDING SCREEN */
         #ending-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -98,12 +131,68 @@
 </head>
 <body>
 
-<div id="start-screen">
+<div id="start-screen" class="full-screen">
     <h1 style="color:var(--ow-orange); font-size:3em; margin-bottom:10px;">옵챔스 감독 시뮬레이터</h1>
     <p style="color:#aaa; margin-bottom:30px;">감독을 맡을 팀을 선택하십시오. (총 9팀)</p>
     <button id="load-btn-start" class="load-btn" onclick="loadGame()">📂 불러오기 (Load Game)</button>
     <br><br>
     <div id="team-buttons" style="display:flex; flex-wrap:wrap; justify-content:center; max-width:800px;"></div>
+</div>
+
+<div id="mode-select-screen" class="full-screen">
+    <h2 style="font-size:2.5em; margin-bottom:10px;">GAME MODE SELECT</h2>
+    <p style="color:#aaa;">플레이할 모드를 선택하십시오.</p>
+    <div style="display:flex;">
+        <div class="mode-card" onclick="selectMode('NORMAL')">
+            <div class="mode-title">일반 모드 (Normal)</div>
+            <div class="mode-desc">
+                기존 팀 로스터 그대로 시즌을 진행합니다.<br>
+                팀의 고유한 색깔을 살려 우승에 도전하세요.
+            </div>
+        </div>
+        <div class="mode-card" onclick="selectMode('DRAFT')">
+            <div class="mode-title">드래프트 모드 (Draft)</div>
+            <div class="mode-desc">
+                모든 선수가 FA로 풀립니다.<br>
+                <strong>[!] 선수 스탯 정보 비공개</strong><br>
+                <strong>[!] 밸런스 보호 (역할군 독점 방지)</strong><br>
+                조건: 탱1/딜2/힐2 필수, 최대 8명.
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="draft-screen" class="full-screen">
+    <h2 style="color:var(--accent);">SNAKE DRAFT PHASE (BLIND)</h2>
+    <div style="display:flex; justify-content:space-between; width:95%; align-items:center;">
+        <div id="draft-status" style="font-size:1.2em; font-weight:bold;">Round 1</div>
+        <div>
+            <button class="pool-filter-btn active" onclick="renderDraftPool('ALL')">ALL</button>
+            <button class="pool-filter-btn" onclick="renderDraftPool('TANK')">TANK</button>
+            <button class="pool-filter-btn" onclick="renderDraftPool('DPS')">DPS</button>
+            <button class="pool-filter-btn" onclick="renderDraftPool('SUP')">SUP</button>
+        </div>
+    </div>
+    
+    <div id="turn-indicator">대기 중...</div>
+
+    <div class="draft-layout">
+        <div class="draft-col draft-my-area">
+            <h3>MY ROSTER</h3>
+            <div id="roster-req-status" style="font-size:0.85em; color:#ccc; margin-bottom:10px; text-align:center;"></div>
+            <div id="my-draft-roster"></div>
+        </div>
+        
+        <div class="draft-col draft-pool-area">
+            <h3>PLAYER POOL (SORTED A-Z)</h3>
+            <div id="draft-pool-list"></div>
+        </div>
+
+        <div class="draft-col draft-history-area">
+            <h3>DRAFT LOG</h3>
+            <div id="draft-history-list"></div>
+        </div>
+    </div>
 </div>
 
 <div id="ending-screen">
@@ -131,9 +220,17 @@
     <div id="potm-content"></div>
 </div>
 
+<div id="all-teams-modal" class="modal">
+    <button class="close-btn" onclick="toggleModal('all-teams-modal')">×</button>
+    <h2 style="margin-top:0; color:#aaa;">🕵️ SCOUTING REPORT (타 팀 로스터)</h2>
+    <div id="all-teams-content" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+        </div>
+</div>
+
 <div id="layout">
     <div class="sidebar">
         <button class="side-btn" onclick="toggleRoster()">📋 MY ROSTER (선수 정보)</button>
+        <button class="side-btn" onclick="toggleAllTeams()">🔍 LEAGUE ROSTER (타 팀 정보)</button>
         <button class="side-btn potm-btn" onclick="togglePOTM()">🏆 LEAGUE POTM</button>
         
         <div style="margin-top:20px; border-top:1px solid #333; padding-top:10px;">
@@ -194,17 +291,17 @@
                         <div class="train-desc">팀 전체의 <span style="color:white;">TEAM +1</span> (역전 확률 증가)</div>
                     </div>
                     <div class="train-card" style="grid-column: span 2; cursor:default; border-color:#555;">
-                         <div style="display:flex; justify-content:space-between; align-items:center;">
+                          <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div>
                                 <div class="train-title" style="color:var(--accent);">⚔️ 영웅 집중 연습</div>
                                 <div class="train-desc">선수 1명이 영웅을 연습합니다. (기본 3회 / 다재다능 2회)</div>
                             </div>
                             <div style="display:flex; gap:10px;">
-                                <select id="train-p-select" style="width:120px;"></select>
+                                <select id="train-p-select" style="width:120px;" onchange="updateTrainHeroList()"></select>
                                 <select id="train-h-select" style="width:120px;"></select>
                                 <button onclick="runTraining('HERO')" style="background:var(--accent); border:none; border-radius:4px; font-weight:bold; cursor:pointer;">GO</button>
                             </div>
-                         </div>
+                          </div>
                     </div>
                     <div class="train-card" style="grid-column: span 2; border-color:var(--stamina);" onclick="runTraining('REST')">
                         <div class="train-title" style="color:var(--stamina);">🛌 전원 휴식</div>
@@ -252,7 +349,7 @@
 
             <div id="ui-ban" class="ui-phase">
                 <h2 style="color:var(--ban-red);">🚫 HERO BAN PHASE</h2>
-                <p style="color:#aaa; font-size:0.9em; margin-bottom:15px;">* 이전 세트에 밴한 역할군은 연속으로 밴할 수 없습니다.</p>
+                <p style="color:#aaa; font-size:0.9em; margin-bottom:15px;">* 이번 매치(Bo5)에서 한번 밴한 영웅은 다시 밴할 수 없습니다.</p>
                 <p style="color:#aaa; font-size:0.8em;">* 같은 세트에 양 팀은 동일한 역할군을 밴할 수 없습니다.</p>
                 <div class="setup-row">
                     <div class="setup-col" style="border:1px solid var(--ban-red);">
@@ -299,7 +396,6 @@
         DPS: [{n:"트레이서",t:"Dive"},{n:"겐지",t:"Dive"},{n:"소전",t:"Poke"},{n:"캐서디",t:"Poke"},{n:"에코",t:"Dive"},{n:"위도우메이커",t:"Poke"},{n:"메이",t:"Rush"},{n:"리퍼",t:"Rush"},{n:"애쉬",t:"Poke"},{n:"솜브라",t:"Dive"},{n:"솔저: 76",t:"Poke"},{n:"파라",t:"Poke"},{n:"바스티온",t:"Poke"},{n:"벤데타",t:"Dive"},{n:"벤처",t:"Dive"},{n:"시메트라",t:"Rush"},{n:"정크랫",t:"Poke"},{n:"토르비욘",t:"Poke"},{n:"프레야",t:"Poke"},{n:"한조",t:"Poke"}],
         SUP: [{n:"아나",t:"Poke"},{n:"키리코",t:"Dive"},{n:"루시우",t:"Rush"},{n:"브리기테",t:"Poke"},{n:"바티스트",t:"Poke"},{n:"주노",t:"Rush"},{n:"젠야타",t:"Poke"},{n:"일리아리",t:"Poke"},{n:"라이프위버",t:"Poke"},{n:"모이라",t:"Rush"},{n:"메르시",t:"Poke"},{n:"우양",t:"Poke"}]
     };
-    
     const HERO_SKILLS = {
         "디바": "자폭", "둠피스트": "파멸의 일격", "윈스턴": "원시의 분노", "시그마": "중력 붕괴", "라인하르트": "대지분쇄", "라마트라": "절멸", "오리사": "대지의 창", "자리야": "중력자탄", "마우가": "케이지", "정커퀸": "살육", "레킹볼": "지뢰밭", "로드호그": "돼재앙", "해저드": "가시소나기",
         "트레이서": "펄스 폭탄", "겐지": "용검", "소전": "오버클럭", "캐서디": "황야의 무법자", "에코": "복제", "위도우메이커": "헤드샷", "메이": "눈보라", "리퍼": "죽음의 꽃", "애쉬": "밥(B.O.B)", "솜브라": "EMP", "솔저: 76": "전술 조준경", "파라": "포화", "바스티온": "포격", "벤데타": "갈라내는 칼날", "벤처": "지각 충격", "시메트라": "광자 방벽", "정크랫": "죽이는 타이어", "토르비욘": "초고열 용광로", "프레야": "올가미 사격", "한조": "용의 일격",
@@ -340,13 +436,6 @@
         ]
     };
 
-    const sorter = (a, b) => a.n.localeCompare(b.n);
-    HEROES.TANK.sort(sorter);
-    HEROES.DPS.sort(sorter);
-    HEROES.SUP.sort(sorter);
-
-    const ALL_HEROES = [...HEROES.TANK, ...HEROES.DPS, ...HEROES.SUP].map(h=>h.n).sort();
-    
     function getHeroRole(name) {
         if(HEROES.TANK.find(h=>h.n===name)) return "TANK";
         if(HEROES.DPS.find(h=>h.n===name)) return "DPS";
@@ -354,16 +443,15 @@
         return "UNKNOWN";
     }
 
-    // CHANGED TO LET FOR SAVE/LOAD OVERWRITE
-    let TEAM_DB = {
+    const ORIGINAL_TEAM_DB = {
         "Crazy Raccoon": [
             {n:"Junbin",r:"TANK",a:90,s:98,m:96,t:99,ms:["윈스턴","레킹볼"]},
             {n:"Max",r:"TANK",a:93,s:95,m:92,t:95,ms:["시그마","자리야"], trait:"분위기메이커"},
             {n:"Lip",r:"DPS",a:99,s:96,m:98,t:95,ms:["소전","솜브라"], trait:"베테랑"},
             {n:"HeeSang",r:"DPS",a:96,s:95,m:93,t:96,ms:["트레이서","파라"], trait:"다재다능"},
-            {n:"Sp1nt",r:"DPS",a:94,s:88,m:89,t:87,ms:["겐지","파라"], trait:"유망주"},
+            {n:"Sp1nt",r:"DPS",a:94,s:88,m:89,t:87,ms:["겐지"], trait:"유망주"},
             {n:"Shu",r:"SUP",a:97,s:99,m:98,t:98,ms:["아나","바티스트"], trait:"베테랑"},
-            {n:"Chorong",r:"SUP",a:88,s:99,m:97,t:99,ms:["루시우","브리기테"], trait:"분위기메이커"}
+            {n:"Chorong",r:"SUP",a:88,s:99,m:97,t:99,ms:["루시우","우양"], trait:"분위기메이커"}
         ],
         "Team Falcons": [
             {n:"Someone",r:"TANK",a:92,s:99,m:97,t:98,ms:["라마트라"], trait:"다재다능"},
@@ -379,16 +467,16 @@
             {n:"AlphaYi",r:"DPS",a:96,s:94,m:92,t:93,ms:["겐지","트레이서"], trait:"소년가장"},
             {n:"Pelican",r:"DPS",a:95,s:95,m:93,t:94,ms:["에코","메이"], trait:"다재다능"},
             {n:"Probe",r:"DPS",a:96,s:85,m:84,t:90,ms:["프레야","애쉬"]},
-            {n:"Bliss",r:"SUP",a:87,s:95,m:94,t:97,ms:["루시우","브리기테"]},
+            {n:"Bliss",r:"SUP",a:87,s:95,m:94,t:97,ms:["루시우"]},
             {n:"Finn",r:"SUP",a:92,s:92,m:90,t:92,ms:["키리코"]}
         ],
         "T1": [
-            {n:"Donghak",r:"TANK",a:87,s:91,m:88,t:91,ms:["윈스턴","레킹볼"]},
+            {n:"Donghak",r:"TANK",a:87,s:91,m:88,t:91,ms: ["둠피스트","레킹볼"]},
             {n:"Jasm1ne",r:"TANK",a:88,s:91,m:89,t:91,ms:["자리야","시그마"], trait:"분위기메이커"},
-            {n:"Proud",r:"DPS",a:97,s:90,m:90,t:89,ms:["프레야","소전"], trait:"유망주"},
+            {n:"Proud",r:"DPS",a:97,s:90,m:90,t:89,ms:["프레야","위도우메이커"], trait:"유망주"},
             {n:"Zest",r:"DPS",a:94,s:94,m:92,t:93,ms:["트레이서","벤처"], trait:"소년가장"},
             {n:"Viper",r:"DPS",a:94,s:89,m:92,t:93,ms:["겐지"]},
-            {n:"Skewed",r:"SUP",a:86,s:95,m:94,t:96,ms:["루시우","브리기테"], trait:"다재다능"},
+            {n:"Skewed",r:"SUP",a:86,s:95,m:94,t:96,ms:["젠야타","브리기테"], trait:"다재다능"},
             {n:"Vigilante",r:"SUP",a:93,s:91,m:90,t:91,ms:["아나","젠야타"]}
         ],
         "WAE": [
@@ -396,13 +484,13 @@
             {n:"Ade",r:"DPS",a:94,s:88,m:87,t:88,ms:["소전","프레야"], trait:"유망주"},
             {n:"SeonJun",r:"DPS",a:89,s:88,m:87,t:88,ms:["트레이서","벤처"], trait:"다재다능"},
             {n:"Taejong",r:"DPS",a:92,s:80,m:82,t:85,ms:["트레이서"]},
-            {n:"Maka",r:"SUP",a:88,s:89,m:88,t:89,ms:["아나"]},
+            {n:"Maka",r:"SUP",a:88,s:99,m:88,t:89,ms:["아나"]},
             {n:"Leesoomin",r:"SUP",a:88,s:89,m:88,t:89,ms:["키리코"], trait:"다재다능"}
         ],
         "Onside Gaming": [
             {n:"Attack",r:"TANK",a:87,s:88,m:88,t:89,ms:["디바"]},
             {n:"Kellan",r:"TANK",a:89,s:88,m:87,t:89,ms:["윈스턴"]},
-            {n:"Knife",r:"DPS",a:93,s:89,m:88,t:89,ms:["트레이서"], trait:"소년가장"},
+            {n:"Knife",r:"DPS",a:93,s:89,m:88,t:89,ms:["트레이서", "소전"], trait:"소년가장"},
             {n:"Ado",r:"DPS",a:85,s:88,m:88,t:89,ms:["겐지"]},
             {n:"Kilo",r:"DPS",a:90,s:80,m:85,t:87,ms:["프레야","캐서디"], trait:"분위기메이커"},
             {n:"Opener",r:"SUP",a:80,s:87,m:85,t:88,ms:["루시우"]},
@@ -410,7 +498,7 @@
         ],
         "Mir Gaming": [
             {n:"Ruler",r:"TANK",a:88,s:87,m:86,t:87,ms:["자리야"], trait:"유망주"},
-            {n:"Azent",r:"DPS",a:90,s:87,m:86,t:87,ms:["트레이서","겐지"]},
+            {n:"Azent",r:"DPS",a:90,s:87,m:86,t:87,ms:["트레이서"]},
             {n:"K4ne",r:"DPS",a:86,s:87,m:88,t:86,ms:["리퍼"]},
             {n:"Flos",r:"DPS",a:88,s:87,m:88,t:86,ms:["소전"]},
             {n:"Mcd",r:"SUP",a:82,s:88,m:85,t:88,ms:["젠야타"], trait:"베테랑"},
@@ -419,37 +507,40 @@
         "Old Ocean": [
             {n:"Gur3um",r:"TANK",a:86,s:89,m:88,t:89,ms:["해저드","디바"]},
             {n:"Heiser",r:"TANK",a:86,s:89,m:88,t:89,ms:["윈스턴","레킹볼"], trait:"유망주"},
-            {n:"A1ien",r:"DPS",a:90,s:88,m:88,t:86,ms:["위도우메이커","한조"]},
+            {n:"A1ien",r:"DPS",a:90,s:88,m:88,t:86,ms:["위도우메이커"]},
             {n:"D4rt",r:"DPS",a:86,s:87,m:88,t:86,ms:["리퍼"]},
-            {n:"Becky",r:"DPS",a:91,s:87,m:86,t:87,ms:["트레이서","겐지"], trait:"소년가장"},
+            {n:"Becky",r:"DPS",a:91,s:87,m:86,t:87,ms:["트레이서","에코"], trait:"소년가장"},
             {n:"Ryujehong",r:"SUP",a:85,s:92,m:90,t:90,ms:["아나","라이프위버"], trait:"베테랑"},
             {n:"Kivis",r:"SUP",a:91,s:86,m:85,t:88,ms:["키리코"], trait:"유망주"}
         ],
         "Cheeseburger": [
-            {n:"Farmer",r:"TANK",a:87,s:87,m:86,t:87,ms:["윈스턴"]},
+            {n:"Farmer",r:"TANK",a:87,s:87,m:86,t:87,ms:["로드호그"]},
             {n:"SeungAn",r:"TANK",a:87,s:87,m:86,t:87,ms:["시그마"]},
             {n:"Argon",r:"DPS",a:88,s:86,m:86,t:87,ms:["트레이서"]},
-            {n:"D0d0",r:"DPS",a:88,s:86,m:86,t:87,ms:["트레이서"], trait:"유망주"},
+            {n:"D0d0",r:"DPS",a:88,s:86,m:86,t:87,ms:["겐지"], trait:"유망주"},
             {n:"Zesin",r:"DPS",a:88,s:86,m:86,t:87,ms:["프레야"]},
             {n:"Woochan",r:"SUP",a:86,s:86,m:85,t:88,ms:["아나"]},
             {n:"Faith",r:"SUP",a:86,s:86,m:85,t:88,ms:["브리기테"]}
         ]
     };
+
+    let TEAM_DB = JSON.parse(JSON.stringify(ORIGINAL_TEAM_DB)); 
+
     const MAP_META = {
-        "사모아": { type: "Rush", good: ["라인하르트", "메이", "루시우", "시메트라"], bad: ["위도우메이커", "시그마"] },
-        "오아시스": { type: "Rush", good: ["리퍼", "정커퀸", "루시우"], bad: ["위도우메이커"] },
-        "일리오스": { type: "Control", good: ["로드호그", "오리사", "루시우", "파라"], bad: [] },
-        "부산": { type: "Dive", good: ["윈스턴", "트레이서", "솜브라"], bad: ["라인하르트"] },
-        "왕의 길": { type: "Rush", good: ["라인하르트", "자리야", "메이", "한조"], bad: ["윈스턴", "볼"] },
-        "할리우드": { type: "Hybrid", good: ["시그마", "소전", "애쉬"], bad: [] },
-        "아이헨발데": { type: "Rush", good: ["라인하르트", "파라", "바스티온"], bad: ["위도우메이커"] },
-        "수라바사": { type: "Dive", good: ["윈스턴", "둠피스트", "루시우", "키리코"], bad: ["시그마", "로드호그"] },
-        "아틀리스": { type: "Flashpoint", good: ["정커퀸", "트레이서", "루시우"], bad: [] },
-        "뉴 퀸 스트리트": { type: "Push", good: ["트레이서", "소전", "루시우", "키리코"], bad: ["라인하르트"] },
-        "에스페란사": { type: "Dive", good: ["윈스턴", "트레이서", "소전"], bad: ["로드호그"] },
-        "쓰레기촌": { type: "Poke", good: ["시그마", "위도우메이커", "소전", "바티스트", "젠야타"], bad: ["라인하르트", "리퍼", "메이"] },
-        "감시 기지: 지브롤터": { type: "Dive", good: ["윈스턴", "디바", "겐지", "에코"], bad: ["라인하르트", "자리야"] },
-        "리알토": { type: "Poke", good: ["애쉬", "캐서디", "시그마"], bad: [] }
+        "사모아": { type: "Rush", good: ["마우가", "메이", "루시우", "리퍼", "모이라"], bad: ["위도우메이커", "시그마", "애쉬", "아나", "젠야타"] },
+        "오아시스": { type: "Rush", good: ["파라", "트레이서", "윈스턴", "메르시", "키리코"], bad: ["정크랫", "토르비욘", "라인하르트", "브리기테", "젠야타"] },
+        "일리오스": { type: "Control", good: ["파라", "에코", "로드호그", "루시우", "메르시"], bad: ["리퍼", "시메트라", "자리야", "바티스트", "일리아리"] },
+        "부산": { type: "Dive", good: ["소전", "솜브라", "디바", "키리코", "아나"], bad: ["정크랫", "바스티온", "로드호그", "라이프위버", "젠야타"] },
+        "왕의 길": { type: "Rush", good: ["캐서디", "메이", "루시우", "아나", "라인하르트"], bad: ["파라", "솜브라", "레킹볼", "메르시", "라이프위버"] },
+        "할리우드": { type: "Hybrid", good: ["시그마", "애쉬", "소전", "메르시", "바티스트"], bad: ["정크랫", "리퍼", "라인하르트", "모이라", "브리기테"] },
+        "아이헨발데": { type: "Rush", good: ["파라", "정크랫", "둠피스트", "아나", "브리기테"], bad: ["위도우메이커", "트레이서", "로드호그", "모이라", "젠야타"] },
+        "수라바사": { type: "Dive", good: ["겐지", "시메트라", "라마트라", "루시우", "키리코"], bad: ["위도우메이커", "시그마", "애쉬", "아나", "젠야타"] },
+        "아틀리스": { type: "Flashpoint", good: ["정커퀸", "트레이서", "솔저: 76", "루시우", "모이라"], bad: ["위도우메이커", "한조", "라인하르트", "바티스트", "일리아리"] },
+        "뉴 퀸 스트리트": { type: "Push", good: ["소전", "벤처", "루시우", "라마트라", "키리코"], bad: ["파라", "정크랫", "로드호그", "메르시", "라이프위버"] },
+        "에스페란사": { type: "Dive", good: ["윈스턴", "위도우메이커", "트레이서", "아나", "브리기테"], bad: ["메이", "리퍼", "오리사", "모이라", "일리아리"] },
+        "쓰레기촌": { type: "Poke", good: ["위도우메이커", "한조", "시그마", "바티스트", "젠야타"], bad: ["정크랫", "시메트라", "자리야", "모이라", "루시우"] },
+        "감시 기지: 지브롤터": { type: "Dive", good: ["겐지", "트레이서", "윈스턴", "아나", "브리기테"], bad: ["바스티온", "토르비욘", "라인하르트", "모이라", "일리아리"] },
+        "리알토": { type: "Poke", good: ["애쉬", "소전", "시그마", "바티스트", "일리아리"], bad: ["리퍼", "둠피스트", "루시우", "모이라", "솜브라"] }
     };
     const MAP_POOLS = {
         "쟁탈": ["사모아","오아시스","일리오스","부산"],
@@ -461,6 +552,7 @@
 
     // --- STATE ---
     let myTeam = ""; 
+    let gameMode = "NORMAL"; 
     let leagueStats = {};
     let schedule = [];
     let currentWeek = 1; 
@@ -468,11 +560,24 @@
     let seasonState = "REGULAR";
     let seasonCount = 1;
 
+    // DRAFT STATE & RULES
+    let draftPool = [];
+    let draftOrder = []; 
+    let globalPickCount = 0; 
+    let isUserTurn = false;
+    
+    // NEW DRAFT CONSTRAINTS
+    const MIN_ROLES = { TANK: 1, DPS: 2, SUP: 2 };
+    const MAX_ROLES = { TANK: 2, DPS: 3, SUP: 3 };
+    const MAX_TOTAL = 8;
+
     let currentMatch = null; 
     let setScores = [0, 0];
     let currentSet = 1;
     let currentMap = "";
-    let bans = {my:[], opp:[]};
+    
+    let bans = {my:[], opp:[]}; 
+    let matchBanHistory = {my:[], opp:[]}; 
     let lastBanRole = { my: null, opp: null };
     
     let myLockedPlayers = []; 
@@ -480,21 +585,18 @@
     let myHeroPicks = [];
     let oppHeroPicks = [];
     let playedMaps = [];
-    
     let playerSetCounts = {}; 
-
     let setWinner = -1; 
     let playoffMatches = {};
 
     window.onload = function() {
-        Object.values(TEAM_DB).forEach(roster => {
-            roster.forEach(p => { 
-                p.hp = 100; 
-                p.practiceProgress = {}; 
-                p.potm = 0; 
-            });
-        });
-
+        if(localStorage.getItem("owcs_save_v18_1")) {
+            document.getElementById('load-btn-start').style.display = 'block';
+        } else {
+             document.getElementById('start-screen').style.display = 'flex';
+        }
+        
+        // Init Button Click Handlers
         const btnBox = document.getElementById('team-buttons');
         Object.keys(TEAM_DB).forEach(t => {
             let btn = document.createElement('button');
@@ -503,66 +605,45 @@
             btn.onclick = () => selectTeam(t);
             btnBox.appendChild(btn);
         });
-
-        // CHECK SAVE
-        if(localStorage.getItem("owcs_save_v1")) {
-            document.getElementById('load-btn-start').style.display = 'block';
-        }
     };
 
-    // --- SAVE & LOAD SYSTEM ---
     function saveGame() {
         if(!myTeam) return;
         const saveData = {
-            myTeam, seasonCount, currentWeek, currentDayStep, seasonState,
+            myTeam, gameMode, seasonCount, currentWeek, currentDayStep, seasonState,
             leagueStats, schedule, TEAM_DB, playoffMatches, currentMatch
         };
-        localStorage.setItem("owcs_save_v1", JSON.stringify(saveData));
+        localStorage.setItem("owcs_save_v18_1", JSON.stringify(saveData));
         alert("게임이 저장되었습니다.");
     }
 
     function loadGame() {
-        const dataStr = localStorage.getItem("owcs_save_v1");
+        const dataStr = localStorage.getItem("owcs_save_v18_1");
         if(!dataStr) { alert("저장된 데이터가 없습니다."); return; }
         
         const data = JSON.parse(dataStr);
         myTeam = data.myTeam;
+        gameMode = data.gameMode || "NORMAL";
         seasonCount = data.seasonCount;
         currentWeek = data.currentWeek;
         currentDayStep = data.currentDayStep;
         seasonState = data.seasonState;
         leagueStats = data.leagueStats;
         schedule = data.schedule;
-        TEAM_DB = data.TEAM_DB; // Overwrite DB
+        TEAM_DB = data.TEAM_DB;
         playoffMatches = data.playoffMatches;
         currentMatch = data.currentMatch;
 
         document.getElementById('start-screen').style.display = 'none';
-        
-        // RE-INIT UI
-        const pSel = document.getElementById('train-p-select');
-        const hSel = document.getElementById('train-h-select');
-        pSel.innerHTML = "";
-        TEAM_DB[myTeam].forEach(p => {
-             let op = document.createElement('option');
-             op.value = p.n; op.innerText = p.n;
-             pSel.appendChild(op);
-        });
-        hSel.innerHTML = "";
-        ALL_HEROES.forEach(h => {
-             let op = document.createElement('option');
-             op.value = h; op.innerText = h;
-             hSel.appendChild(op);
-        });
-
+        updateTrainHeroList();
         updateRoundUI();
         updateStandings();
-        log(`[SYSTEM] 게임 로드 완료. (Season ${seasonCount})`);
+        log(`[SYSTEM] 게임 로드 완료. (Season ${seasonCount} / Mode: ${gameMode})`);
     }
 
     function resetGame() {
         if(confirm("저장된 데이터를 모두 삭제하고 초기화하시겠습니까?")) {
-            localStorage.removeItem("owcs_save_v1");
+            localStorage.removeItem("owcs_save_v18_1");
             location.reload();
         }
     }
@@ -570,36 +651,416 @@
     function selectTeam(t) {
         myTeam = t;
         document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('mode-select-screen').style.display = 'flex';
+    }
+
+    function selectMode(mode) {
+        gameMode = mode;
+        document.getElementById('mode-select-screen').style.display = 'none';
+        
+        if (mode === "NORMAL") {
+            TEAM_DB = JSON.parse(JSON.stringify(ORIGINAL_TEAM_DB)); 
+            Object.values(TEAM_DB).forEach(roster => {
+                roster.forEach(p => { p.hp = 100; p.practiceProgress = {}; p.potm = 0; });
+            });
+            initLeague();
+        } else {
+            startDraftSetup();
+        }
+    }
+
+    // --- UPDATED DRAFT LOGIC ---
+    function startDraftSetup() {
+        document.getElementById('draft-screen').style.display = 'flex';
+        
+        // 1. Flatten Pool
+        draftPool = [];
+        Object.values(ORIGINAL_TEAM_DB).forEach(roster => {
+            roster.forEach(p => {
+                let newP = {...p}; 
+                newP.hp = 100; 
+                newP.practiceProgress = {}; 
+                newP.potm = 0;
+                newP.picked = false;
+                draftPool.push(newP);
+            });
+        });
+        
+        // 2. Clear Team Rosters
+        Object.keys(TEAM_DB).forEach(t => { TEAM_DB[t] = []; });
+        
+        // 3. Set Random Order for AI, Fixed for User
+        let otherTeams = Object.keys(TEAM_DB).filter(t => t !== myTeam);
+        otherTeams.sort(() => Math.random() - 0.5);
+        draftOrder = [myTeam, ...otherTeams];
+        
+        globalPickCount = 0;
+        
+        // Clear History UI
+        document.getElementById('draft-history-list').innerHTML = "";
+
+        renderDraftPool('ALL');
+        updateDraftUI();
+        log("드래프트 시작! (조건: 탱1/딜2/힐2 필수, 최대 8명, 풀 소진 시 종료)");
+        
+        processDraftTurn();
+    }
+
+    function checkRosterConstraints(teamName, roleToCheck) {
+        const roster = TEAM_DB[teamName];
+        let counts = { TANK: 0, DPS: 0, SUP: 0 };
+        roster.forEach(p => counts[p.r]++);
+        
+        if (counts[roleToCheck] >= MAX_ROLES[roleToCheck]) return { valid: false, reason: "ROLE_FULL" };
+        if (roster.length >= MAX_TOTAL) return { valid: false, reason: "ROSTER_FULL" };
+        
+        return { valid: true };
+    }
+    
+    function checkGlobalRoleSafety(roleToCheck, pickerTeamName) {
+        let poolCount = draftPool.filter(p => !p.picked && p.r === roleToCheck).length;
+        let othersNeed = 0;
+        Object.keys(TEAM_DB).forEach(tName => {
+            if (tName === pickerTeamName) return; 
+            let r = TEAM_DB[tName];
+            let currentCount = r.filter(p => p.r === roleToCheck).length;
+            let minReq = MIN_ROLES[roleToCheck];
+            othersNeed += Math.max(0, minReq - currentCount);
+        });
+        if (poolCount - 1 < othersNeed) {
+            return false; 
+        }
+        return true;
+    }
+
+    function processDraftTurn() {
+        let unpickedCount = draftPool.filter(p => !p.picked).length;
+        if (unpickedCount === 0) { finishDraft(); return; }
+        
+        // Check if everyone is full or cannot pick
+        let allFull = Object.keys(TEAM_DB).every(t => TEAM_DB[t].length >= MAX_TOTAL);
+        if (allFull) { finishDraft(); return; }
+
+        let round = Math.floor(globalPickCount / 9) + 1;
+        let slotIndex = globalPickCount % 9;
+        let currentPickerIndex = (round % 2 !== 0) ? slotIndex : (8 - slotIndex);
+        let pickingTeam = draftOrder[currentPickerIndex];
+        let teamRoster = TEAM_DB[pickingTeam];
+        
+        // 1. Check Full Roster
+        if (teamRoster.length >= MAX_TOTAL) {
+            globalPickCount++;
+            processDraftTurn(); 
+            return;
+        }
+
+        // 2. CHECK IF TEAM *CAN* PICK ANYTHING (Auto-Skip Logic)
+        let counts = { TANK: 0, DPS: 0, SUP: 0 };
+        teamRoster.forEach(p => counts[p.r]++);
+
+        // Is there space in roster for this role?
+        let canPickTank = counts.TANK < MAX_ROLES.TANK;
+        let canPickDps = counts.DPS < MAX_ROLES.DPS;
+        let canPickSup = counts.SUP < MAX_ROLES.SUP;
+
+        // Is there a player in pool for this role?
+        let poolHasTank = draftPool.some(p => !p.picked && p.r === 'TANK');
+        let poolHasDps = draftPool.some(p => !p.picked && p.r === 'DPS');
+        let poolHasSup = draftPool.some(p => !p.picked && p.r === 'SUP');
+
+        // Can we make a move? (Must be able to pick AND exist in pool)
+        let hasValidMove = (canPickTank && poolHasTank) ||
+                           (canPickDps && poolHasDps) ||
+                           (canPickSup && poolHasSup);
+
+        if (!hasValidMove) {
+            log(`[Draft] ${pickingTeam} 팀은 현재 픽 가능한 역할군 선수가 없어 순서를 건너뜁니다.`);
+            globalPickCount++;
+            processDraftTurn(); // Recursive Skip
+            return;
+        }
+
+        const indicator = document.getElementById('turn-indicator');
+        indicator.innerText = `${pickingTeam} 팀 픽 진행 중... (R${round})`;
+        if(pickingTeam === myTeam) indicator.classList.add('turn-active');
+        else indicator.classList.remove('turn-active');
+
+        document.getElementById('draft-status').innerText = `Round ${round} (Pick ${globalPickCount+1})`;
+
+        if (pickingTeam === myTeam) {
+            isUserTurn = true;
+            renderDraftPool(document.querySelector('.pool-filter-btn.active').innerText); 
+        } else {
+            isUserTurn = false;
+            renderDraftPool(document.querySelector('.pool-filter-btn.active').innerText);
+            setTimeout(() => {
+                aiPickLogic(pickingTeam);
+                globalPickCount++;
+                processDraftTurn();
+            }, 100);
+        }
+    }
+
+    function renderDraftPool(filterRole) {
+        const list = document.getElementById('draft-pool-list');
+        list.innerHTML = "";
+        
+        document.querySelectorAll('.pool-filter-btn').forEach(b => {
+            if(b.innerText === filterRole) b.classList.add('active');
+            else b.classList.remove('active');
+        });
+
+        draftPool.sort((a,b) => a.n.localeCompare(b.n));
+
+        let myCounts = { TANK: 0, DPS: 0, SUP: 0 };
+        TEAM_DB[myTeam].forEach(p => myCounts[p.r]++);
+
+        draftPool.forEach((p, idx) => {
+            if (filterRole !== 'ALL' && p.r !== filterRole) return;
+            
+            let roleClass = p.r === 'TANK' ? 'rb-tank' : (p.r === 'DPS' ? 'rb-dps' : 'rb-sup');
+            let isPicked = p.picked ? 'picked' : '';
+            
+            let disabledClass = '';
+            let blockReason = '';
+
+            if (!isPicked) {
+                if (!isUserTurn) {
+                    disabledClass = 'disabled';
+                } else {
+                    if (myCounts[p.r] >= MAX_ROLES[p.r]) {
+                        disabledClass = 'disabled';
+                        blockReason = '(최대인원)';
+                    }
+                    else if (TEAM_DB[myTeam].length >= MAX_TOTAL) {
+                        disabledClass = 'disabled';
+                        blockReason = '(팀만원)';
+                    }
+                    else if (!checkGlobalRoleSafety(p.r, myTeam)) {
+                        disabledClass = 'disabled';
+                        blockReason = '(타팀보호)';
+                    }
+                }
+            }
+
+            let card = document.createElement('div');
+            card.className = `draft-card ${isPicked} ${disabledClass}`;
+            card.innerHTML = `
+                <div class="role-badge ${roleClass}">${p.r}</div>
+                <div style="font-weight:bold; color:white;">${p.n}</div>
+                <div style="font-size:0.8em; color:#aaa;">MS: ${p.ms.join(", ")} | Stats: ??? <span style="color:var(--ban-red);">${blockReason}</span></div>
+                <button style="background:var(--accent); border:none; border-radius:3px; cursor:pointer; font-weight:bold;" onclick="handleUserPick(${idx})">PICK</button>
+            `;
+            list.appendChild(card);
+        });
+        updateDraftUI();
+    }
+
+    function addToDraftHistory(teamName, player) {
+        const list = document.getElementById('draft-history-list');
+        const item = document.createElement('div');
+        let myPickClass = (teamName === myTeam) ? 'my-pick' : '';
+        let roleColor = player.r === 'TANK' ? '#3498db' : (player.r === 'DPS' ? '#e74c3c' : '#2ecc71');
+        
+        item.className = `hist-item ${myPickClass}`;
+        item.innerHTML = `
+            <div style="display:flex; align-items:center;">
+                <div class="hist-team">${teamName}</div>
+                <span style="color:${roleColor}; font-size:0.8em; margin-right:5px; border:1px solid ${roleColor}; padding:0 3px; border-radius:3px;">${player.r}</span>
+                <div class="hist-player">${player.n}</div>
+            </div>
+        `;
+        list.prepend(item); 
+    }
+
+    function handleUserPick(poolIdx) {
+        if (!isUserTurn) return;
+        let p = draftPool[poolIdx];
+        if (p.picked) return;
+        
+        let constraint = checkRosterConstraints(myTeam, p.r);
+        if (!constraint.valid) { alert("해당 선수를 픽할 수 없습니다. (제한 초과)"); return; }
+        if (!checkGlobalRoleSafety(p.r, myTeam)) { alert("다른 팀의 최소 인원을 보장하기 위해 이 역할군을 선택할 수 없습니다."); return; }
+
+        p.picked = true;
+        TEAM_DB[myTeam].push(p);
+        addToDraftHistory(myTeam, p); 
+        
+        isUserTurn = false;
+        globalPickCount++;
+        processDraftTurn();
+    }
+
+    // --- AI PICK LOGIC (UPDATED: Diversity & Smart & Safety) ---
+    function getAiCandidate(role, roster, teamName) {
+        // Safety Check First
+        if (!checkGlobalRoleSafety(role, teamName)) return null;
+
+        let existingMS = new Set();
+        roster.forEach(p => {
+            p.ms.forEach(h => existingMS.add(h));
+        });
+
+        let candidates = draftPool.filter(p => !p.picked && p.r === role);
+        if(candidates.length === 0) return null;
+
+        candidates.forEach(p => {
+            let statTotal = p.a + p.s + p.m + p.t;
+            let noise = Math.random() * 20; 
+            
+            let overlapCount = 0;
+            p.ms.forEach(h => {
+                if(existingMS.has(h)) overlapCount++;
+            });
+            let overlapPenalty = overlapCount * 50; 
+
+            p.aiScore = statTotal + noise - overlapPenalty;
+        });
+
+        candidates.sort((a,b) => b.aiScore - a.aiScore);
+        
+        return candidates[0]; 
+    }
+
+    function aiPickLogic(tName) {
+        const roster = TEAM_DB[tName];
+        let counts = { TANK: 0, DPS: 0, SUP: 0 };
+        roster.forEach(p => counts[p.r]++);
+        
+        let needsMin = [];
+        if (counts.TANK < MIN_ROLES.TANK) needsMin.push("TANK");
+        if (counts.DPS < MIN_ROLES.DPS) needsMin.push("DPS");
+        if (counts.SUP < MIN_ROLES.SUP) needsMin.push("SUP");
+
+        let allowedMax = [];
+        if (counts.TANK < MAX_ROLES.TANK) allowedMax.push("TANK");
+        if (counts.DPS < MAX_ROLES.DPS) allowedMax.push("DPS");
+        if (counts.SUP < MAX_ROLES.SUP) allowedMax.push("SUP");
+
+        let bestP = null;
+
+        // Priority 1: Fill Minimum Needs
+        if (needsMin.length > 0) {
+            needsMin.sort(() => Math.random() - 0.5);
+            for (let r of needsMin) {
+                let candidate = getAiCandidate(r, roster, tName);
+                if (candidate) { bestP = candidate; break; }
+            }
+        }
+        
+        // Priority 2: Fill if allowed (Smart Fill)
+        if (!bestP && allowedMax.length > 0) {
+            allowedMax.sort(() => Math.random() - 0.5);
+            for (let r of allowedMax) {
+                let candidate = getAiCandidate(r, roster, tName);
+                if (candidate) { bestP = candidate; break; }
+            }
+        }
+        
+        // Fallback with Limit Check
+        if (!bestP) {
+             for (let p of draftPool) { 
+                 // Ensure this random pick doesn't violate max constraints
+                 if (!p.picked && counts[p.r] < MAX_ROLES[p.r] && checkGlobalRoleSafety(p.r, tName)) { 
+                    bestP = p; break; 
+                 } 
+             }
+        }
+
+        if (bestP) {
+            bestP.picked = true;
+            roster.push(bestP);
+            addToDraftHistory(tName, bestP); 
+        }
+    }
+
+    function updateDraftUI() {
+        const myDiv = document.getElementById('my-draft-roster');
+        const reqDiv = document.getElementById('roster-req-status');
+        
+        let counts = { TANK: 0, DPS: 0, SUP: 0 };
+        TEAM_DB[myTeam].forEach(p => counts[p.r]++);
+        
+        let tColor = counts.TANK >= MIN_ROLES.TANK ? 'var(--good-green)' : 'var(--ban-red)';
+        let dColor = counts.DPS >= MIN_ROLES.DPS ? 'var(--good-green)' : 'var(--ban-red)';
+        let sColor = counts.SUP >= MIN_ROLES.SUP ? 'var(--good-green)' : 'var(--ban-red)';
+        
+        reqDiv.innerHTML = `
+            T: <span style="color:${tColor}">${counts.TANK}/${MAX_ROLES.TANK}</span> (Min ${MIN_ROLES.TANK}) | 
+            D: <span style="color:${dColor}">${counts.DPS}/${MAX_ROLES.DPS}</span> (Min ${MIN_ROLES.DPS}) | 
+            S: <span style="color:${sColor}">${counts.SUP}/${MAX_ROLES.SUP}</span> (Min ${MIN_ROLES.SUP}) | 
+            Total: ${TEAM_DB[myTeam].length}/${MAX_TOTAL}
+        `;
+
+        myDiv.innerHTML = "";
+        TEAM_DB[myTeam].forEach(p => {
+            let roleClass = p.r === 'TANK' ? 'rb-tank' : (p.r === 'DPS' ? 'rb-dps' : 'rb-sup');
+            let statTotal = p.a + p.s + p.m + p.t;
+            myDiv.innerHTML += `<div style="background:#333; margin:5px 0; padding:5px; display:flex; justify-content:space-between; align-items:center;">
+                <span class="role-badge ${roleClass}" style="margin-right:5px;">${p.r}</span>
+                <span>${p.n}</span>
+                <span style="color:var(--accent); font-weight:bold;">${statTotal}</span>
+            </div>`;
+        });
+    }
+
+    function finishDraft() {
+        let counts = { TANK: 0, DPS: 0, SUP: 0 };
+        TEAM_DB[myTeam].forEach(p => counts[p.r]++);
+        
+        if (counts.TANK < MIN_ROLES.TANK || counts.DPS < MIN_ROLES.DPS || counts.SUP < MIN_ROLES.SUP) {
+            alert("주의: 팀 최소 인원을 채우지 못한 상태로 드래프트가 종료되었습니다.");
+        }
+
+        document.getElementById('draft-screen').style.display = 'none';
         initLeague();
     }
 
+    // --- LEAGUE LOGIC ---
     function initLeague() {
         Object.keys(TEAM_DB).forEach(t => leagueStats[t] = {w:0, l:0, d:0, name:t});
         schedule = [];
         generateSchedule();
-        
+        updateTrainHeroList();
+        updateRoundUI();
+        updateStandings();
+        log(`== SEASON ${seasonCount} START (${gameMode}) ==`);
+        log(`감독님, ${myTeam}의 ${seasonCount}번째 시즌이 시작됩니다.`);
+    }
+
+    function updateTrainHeroList() {
         const pSel = document.getElementById('train-p-select');
-        const hSel = document.getElementById('train-h-select');
+        const roster = TEAM_DB[myTeam];
+        let currentVal = pSel.value;
         pSel.innerHTML = "";
-        TEAM_DB[myTeam].forEach(p => {
+        if (roster.length === 0) return; 
+        roster.forEach(p => {
              let op = document.createElement('option');
              op.value = p.n; op.innerText = p.n;
              pSel.appendChild(op);
         });
-        hSel.innerHTML = "";
-        ALL_HEROES.forEach(h => {
-             let op = document.createElement('option');
-             op.value = h; op.innerText = h;
-             hSel.appendChild(op);
-        });
-
-        updateRoundUI();
-        updateStandings();
-        log(`== SEASON ${seasonCount} START ==`);
-        log(`감독님, ${myTeam}의 ${seasonCount}번째 시즌이 시작됩니다.`);
+        if (currentVal && roster.find(p=>p.n===currentVal)) pSel.value = currentVal;
+        updateTrainHeroList2(); 
     }
 
-    // --- UTILS & CORE ---
+    function updateTrainHeroList2() {
+        const pName = document.getElementById('train-p-select').value;
+        if(!pName) return;
+        const roster = TEAM_DB[myTeam];
+        const player = roster.find(p => p.n === pName);
+        if (!player) return;
+        const role = player.r; 
+        const hSel = document.getElementById('train-h-select');
+        hSel.innerHTML = "";
+        HEROES[role].forEach(h => {
+            let op = document.createElement('option');
+            op.value = h.n;
+            op.innerText = h.n;
+            hSel.appendChild(op);
+        });
+    }
+
+    // --- CORE GAME LOOP UTILS ---
     function getCurrentOpponentName() {
         if (seasonState === "REGULAR") {
             if(!currentMatch) return null;
@@ -622,6 +1083,34 @@
         const m = document.getElementById(id);
         m.style.display = (m.style.display === 'block') ? 'none' : 'block';
     }
+    
+    // --- TOGGLE ALL TEAMS ---
+    function toggleAllTeams() {
+        if(!myTeam) return;
+        toggleModal('all-teams-modal');
+        const content = document.getElementById('all-teams-content');
+        content.innerHTML = "";
+        
+        Object.keys(TEAM_DB).forEach(tName => {
+            if(tName === myTeam) return; 
+            
+            let html = `<div style="background:#222; padding:10px; border-radius:5px; border:1px solid #444;">`;
+            html += `<h3 style="color:var(--ow-orange); margin:0 0 10px 0; border-bottom:1px solid #555; padding-bottom:5px;">${tName}</h3>`;
+            html += `<div style="display:grid; grid-template-columns:1fr 1fr; gap:5px;">`;
+            
+            TEAM_DB[tName].forEach(p => {
+                let roleColor = p.r === 'TANK' ? '#3498db' : (p.r === 'DPS' ? '#e74c3c' : '#2ecc71');
+                html += `<div style="display:flex; justify-content:space-between; font-size:0.9em; background:#111; padding:4px; border-radius:3px;">
+                            <span style="color:#ddd;">${p.n}</span>
+                            <span style="color:${roleColor}; font-weight:bold; font-size:0.85em;">${p.r}</span>
+                         </div>`;
+            });
+            
+            html += `</div></div>`;
+            content.innerHTML += html;
+        });
+    }
+
     function toggleRoster() {
         if(!myTeam) return;
         toggleModal('roster-modal');
@@ -775,7 +1264,7 @@
     }
 
     function prepareNextSeason() {
-        if(confirm("이번 시즌을 종료하고 다음 시즌을 시작하시겠습니까?\n(선수 능력치는 유지됩니다)")) {
+        if(confirm("이번 시즌을 종료하고 다음 시즌을 시작하시겠습니까?")) {
             seasonCount++;
             currentWeek = 1;
             currentDayStep = 0;
@@ -784,23 +1273,50 @@
         }
     }
 
+    // --- AI AUTOMATION ---
+    function simulateAIWeeklyRoutine() {
+        log(`<div class="log-system">AI 팀들이 이번 주 훈련/휴식을 결정합니다...</div>`);
+        Object.keys(TEAM_DB).forEach(tName => {
+            if(tName === myTeam) return; 
+            const roster = TEAM_DB[tName];
+            let totalHp = roster.reduce((acc, p) => acc + p.hp, 0);
+            let avgHp = totalHp / roster.length;
+
+            if (avgHp < 70) {
+                roster.forEach(p => p.hp = Math.min(100, p.hp + 30));
+            } else {
+                roster.forEach(p => p.hp = Math.max(0, p.hp - 10));
+                let roll = Math.random();
+                if (roll < 0.25) roster.forEach(p => { if(p.a < 99) p.a++; });
+                else if (roll < 0.50) roster.forEach(p => { if(p.s < 99) p.s++; });
+                else if (roll < 0.75) roster.forEach(p => { if(p.t < 99) p.t++; });
+                else {
+                    let p = roster[Math.floor(Math.random()*roster.length)];
+                    if (p) {
+                         let pool = HEROES[p.r];
+                         let h = pool[Math.floor(Math.random()*pool.length)].n;
+                         if(!p.ms.includes(h)) if(Math.random() < 0.3) p.ms.push(h);
+                    }
+                }
+            }
+        });
+    }
+
     function runTraining(type) {
         const roster = TEAM_DB[myTeam];
         const chance = () => Math.random() < 0.1;
 
         if(type === 'REST') { 
-            recoverAllStamina(30); 
+            roster.forEach(p => p.hp = Math.min(100, p.hp + 30));
             log("전원 휴식 완료. 체력 +30"); 
         } 
         else if(type === 'HERO') {
             const pName = document.getElementById('train-p-select').value;
             const hName = document.getElementById('train-h-select').value;
             const player = roster.find(p=>p.n === pName);
-            
             if(!player.practiceProgress[hName]) player.practiceProgress[hName] = 0;
             player.practiceProgress[hName]++;
             let count = player.practiceProgress[hName];
-            
             let req = (player.trait === "다재다능") ? 2 : 3;
 
             if(count >= req) {
@@ -808,27 +1324,23 @@
                 else log(`${pName} 선수는 이미 ${hName} 장인입니다.`);
             } else log(`${pName}: ${hName} 연습 완료 (${count}/${req})`);
             
-            recoverAllStamina(10);
+            roster.forEach(p => p.hp = Math.min(100, p.hp + 10));
         } else {
             let statMap = {'AIM':'a', 'SENSE':'s', 'MENTAL':'m', 'TEAM':'t'};
             let traitMap = {'AIM':'유망주', 'SENSE':'베테랑', 'MENTAL':'소년가장', 'TEAM':'분위기메이커'};
-            
             let key = statMap[type];
             let targetTrait = traitMap[type];
             let bonusMsg = "";
 
             roster.forEach(p => {
                 let gain = 1;
-                if(p.trait === targetTrait && chance()) {
-                    gain = 2;
-                    bonusMsg = ` (${p.n} 특성 발동!)`;
-                }
+                if(p.trait === targetTrait && chance()) { gain = 2; bonusMsg = ` (${p.n} 특성 발동!)`; }
                 if(p[key] < 99) p[key] = Math.min(99, p[key] + gain);
+                p.hp = Math.min(100, p.hp + 10);
             });
-            
-            recoverAllStamina(10);
             log(`[훈련] 팀 전체 ${type} 훈련 완료.${bonusMsg} 체력 +10`);
         }
+        simulateAIWeeklyRoutine();
         if (seasonState === "REGULAR") currentDayStep = 1; 
         else if (seasonState === "POST_BUFFER") seasonState = "POST_SEED"; 
         else if (seasonState === "POST_SEED_TRAIN") { runSeedMatchesSimOnly(); seasonState = "POST_SEMI"; }
@@ -844,9 +1356,16 @@
                 let winner = s1 > s2 ? m.h : m.a;
                 calcMatchPOTM(winner);
                 recordStats(m.h, m.a, s1, s2);
+                [m.h, m.a].forEach(tName => {
+                    let r = TEAM_DB[tName];
+                    let shuffled = [...r].sort(() => 0.5 - Math.random());
+                    let played = shuffled.slice(0, 5);
+                    played.forEach(p => p.hp = Math.max(0, p.hp - 15));
+                });
             }
         });
-        recoverAllStamina(5);
+        const roster = TEAM_DB[myTeam];
+        roster.forEach(p => p.hp = Math.min(100, p.hp + 5));
         log(`[휴식일] 자동 진행 완료. 체력 +5 회복.`);
         advanceDay();
     }
@@ -871,10 +1390,11 @@
     function startMatchSequence() {
         setScores = [0, 0];
         currentSet = 1;
+        matchBanHistory = { my: [], opp: [] }; 
         bans = {my:[], opp:[]};
         lastBanRole = { my: null, opp: null }; 
         playedMaps = [];
-        playerSetCounts = {}; // Reset participation
+        playerSetCounts = {}; 
         
         if(seasonState === "REGULAR") {
             const roundIdx = (currentWeek - 1) * 3 + (currentDayStep - 1);
@@ -885,6 +1405,12 @@
                     let winner = s1 > s2 ? m.h : m.a;
                     calcMatchPOTM(winner);
                     recordStats(m.h, m.a, s1, s2);
+                     [m.h, m.a].forEach(tName => {
+                        let r = TEAM_DB[tName];
+                        let shuffled = [...r].sort(() => 0.5 - Math.random());
+                        let played = shuffled.slice(0, 5);
+                        played.forEach(p => p.hp = Math.max(0, p.hp - 15));
+                    });
                 }
             });
         }
@@ -897,27 +1423,45 @@
         const roster = TEAM_DB[winnerTeam];
         let bestScore = -1;
         let bestPlayer = null;
-        
         let candidates = roster;
         if (winnerTeam === myTeam && Object.keys(playerSetCounts).length > 0) {
              candidates = roster.filter(p => playerSetCounts[p.n] > 0);
         }
-
         candidates.forEach(p => {
-            let setBonus = (winnerTeam === myTeam) ? (playerSetCounts[p.n] || 0) * 5 : 0;
+            let setBonus = (playerSetCounts[p.n] || 0) * 5; 
             let score = (p.a + p.s + p.m + p.t) + (Math.random() * 50) + setBonus; 
             if(score > bestScore) { bestScore = score; bestPlayer = p; }
         });
-        
         if(bestPlayer) { bestPlayer.potm++; return bestPlayer.n; }
         return "Unknown";
+    }
+
+    // --- AI SMART MAP SELECTION ---
+    function getBestAiMap(pool) {
+        let oppName = getCurrentOpponentName();
+        if(!oppName || !TEAM_DB[oppName]) return pool[Math.floor(Math.random()*pool.length)];
+        let aiRoster = TEAM_DB[oppName];
+        let bestMap = pool[0];
+        let maxScore = -999;
+        pool.forEach(map => {
+            let score = 0;
+            let meta = MAP_META[map];
+            aiRoster.forEach(p => {
+                p.ms.forEach(hero => {
+                    if(meta.good.includes(hero)) score += 10;
+                    if(meta.bad.includes(hero)) score -= 10;
+                });
+            });
+            if(score > maxScore) { maxScore = score; bestMap = map; }
+            else if (score === maxScore && Math.random() > 0.5) { bestMap = map; }
+        });
+        return bestMap;
     }
 
     function startSet() {
         let maxSets = (seasonState === 'POST_FINAL') ? 7 : 5;
         document.getElementById('set-score-txt').innerText = `SET ${currentSet} (Bo${maxSets})`;
         bans = {my:[], opp:[]}; 
-        
         switchPhase('ui-map');
         const modes = ["쟁탈","혼합","플래시","밀기","호위"];
         let modeIndex = (currentSet - 1) % 5;
@@ -934,9 +1478,9 @@
             pool.forEach(m => selector.innerHTML += `<option>${m}</option>`);
             document.querySelector('#ui-map button').disabled = false;
         } else {
-            let aiMap = pool[Math.floor(Math.random()*pool.length)];
+            let aiMap = getBestAiMap(pool);
             currentMap = aiMap;
-            document.getElementById('map-msg').innerText = `상대팀이 ${aiMap}을 선택했습니다.`;
+            document.getElementById('map-msg').innerText = `상대팀이 ${aiMap}을 선택했습니다. (전략적 선택)`;
             selector.innerHTML = `<option>${aiMap}</option>`;
             document.querySelector('#ui-map button').disabled = true;
             setTimeout(confirmMap, 1500);
@@ -974,11 +1518,14 @@
             if(myLockedPlayers.includes(val)) { alert("중복 선수!"); return; }
             myLockedPlayers.push(val);
         }
-        
         generateOpponentPlayers();
         let oppHtml = "";
         oppLockedPlayers.forEach(p => {
-            oppHtml += `<div style="background:#333; margin:5px; padding:5px; border-radius:4px;">${p.n} <span style="font-size:0.8em; color:#888;">(${p.r})</span></div>`;
+            let hpColor = p.hp > 80 ? '#2ecc71' : (p.hp > 50 ? '#f1c40f' : '#e74c3c');
+            oppHtml += `<div style="background:#333; margin:5px; padding:5px; border-radius:4px;">
+                ${p.n} <span style="font-size:0.8em; color:${hpColor};">(${p.hp}%)</span>
+                <span style="font-size:0.8em; color:#888;">${p.r}</span>
+                </div>`;
         });
         document.getElementById('roster-opp-display').innerHTML = oppHtml;
         log("[LINEUP] 양 팀 로스터 확정.");
@@ -991,7 +1538,6 @@
             let allTeams = Object.keys(TEAM_DB).filter(t => t !== myTeam);
             oppTeamName = allTeams[0];
         }
-
         const oppRoster = TEAM_DB[oppTeamName];
         const roles = ["TANK","DPS","DPS","SUP","SUP"];
         oppLockedPlayers = []; 
@@ -999,9 +1545,13 @@
         roles.forEach(r => {
             let availablePlayers = oppRoster.filter(p => p.r === r && !usedPlayers.includes(p.n));
             if(availablePlayers.length === 0) availablePlayers = oppRoster.filter(p => p.r === r);
-            let pickP = availablePlayers[Math.floor(Math.random()*availablePlayers.length)];
-            usedPlayers.push(pickP.n);
-            oppLockedPlayers.push(pickP);
+            availablePlayers.sort((a,b) => b.hp - a.hp);
+            let pickIndex = Math.random() < 0.7 ? 0 : Math.floor(Math.random()*availablePlayers.length);
+            let pickP = availablePlayers[pickIndex];
+            if(pickP) {
+                usedPlayers.push(pickP.n);
+                oppLockedPlayers.push(pickP);
+            }
         });
     }
 
@@ -1012,13 +1562,13 @@
         document.getElementById('ban-phase-opp-list').innerHTML = oppListHtml;
         const s = document.getElementById('ban-select');
         s.innerHTML = "";
-        
         if(lastBanRole.my) log(`[BAN RULE] 이번 세트 우리 팀은 '${lastBanRole.my}' 밴 불가.`);
-        
         ["TANK","DPS","SUP"].forEach(r => {
             if (lastBanRole.my === r) return; 
             HEROES[r].forEach(h => {
-                if(!bans.my.includes(h.n)) s.innerHTML += `<option value="${h.n}">[${r}] ${h.n}</option>`;
+                if(!bans.my.includes(h.n) && !matchBanHistory.my.includes(h.n)) {
+                    s.innerHTML += `<option value="${h.n}">[${r}] ${h.n}</option>`;
+                }
             });
         });
         document.getElementById('opp-ban-display').innerText = "-";
@@ -1027,25 +1577,45 @@
     function confirmBan() {
         let mb = document.getElementById('ban-select').value;
         bans.my.push(mb);
+        matchBanHistory.my.push(mb); 
         let myRole = getHeroRole(mb);
         lastBanRole.my = myRole; 
         
+        let userThreats = [];
+        myLockedPlayers.forEach(pName => {
+            let pObj = TEAM_DB[myTeam].find(p=>p.n===pName);
+            if(pObj) userThreats.push(...pObj.ms);
+        });
+
         let pool = [];
+        let smartBanCandidates = [];
+
         ["TANK","DPS","SUP"].forEach(r => {
             if(r === myRole) return; 
             if(r === lastBanRole.opp) return; 
-            HEROES[r].forEach(h => { if(!bans.opp.includes(h.n)) pool.push(h.n); });
+            HEROES[r].forEach(h => { 
+                if(!bans.opp.includes(h.n) && !matchBanHistory.opp.includes(h.n)) {
+                    pool.push(h.n);
+                    if(userThreats.includes(h.n)) smartBanCandidates.push(h.n);
+                }
+            });
         });
         
-        if(pool.length === 0) {
+        if(pool.length === 0 && smartBanCandidates.length === 0) {
              ["TANK","DPS","SUP"].forEach(r => {
                 if(r === myRole) return;
-                HEROES[r].forEach(h => { if(!bans.opp.includes(h.n)) pool.push(h.n); });
+                HEROES[r].forEach(h => { 
+                    if(!bans.opp.includes(h.n) && !matchBanHistory.opp.includes(h.n)) {
+                        pool.push(h.n);
+                    }
+                });
             });
         }
-
-        let ab = pool[Math.floor(Math.random()*pool.length)];
+        let ab;
+        if(smartBanCandidates.length > 0 && Math.random() < 0.8) ab = smartBanCandidates[Math.floor(Math.random()*smartBanCandidates.length)];
+        else ab = pool[Math.floor(Math.random()*pool.length)];
         bans.opp.push(ab);
+        matchBanHistory.opp.push(ab); 
         lastBanRole.opp = getHeroRole(ab);
         
         document.getElementById('opp-ban-display').innerText = `🚫 ${ab}`;
@@ -1064,7 +1634,7 @@
                 <div style="font-weight:bold; color:var(--ow-orange);">${pName} (${role})</div>
                 <select id="hpick${i}">`;
             
-            HEROES[role].filter(h => !bans.my.includes(h.n) && !bans.opp.includes(h.n)).forEach(h => {
+            HEROES[role].filter(h => !bans.my.includes(h.n) && !bans.opp.includes(h.n) && !matchBanHistory.my.includes(h.n) && !matchBanHistory.opp.includes(h.n)).forEach(h => {
                 html += `<option value="${h.n}">${h.n}</option>`;
             });
 
@@ -1077,14 +1647,29 @@
     function generateOpponentHeroes() {
         oppHeroPicks = [];
         let usedHeroes = [];
+        let meta = MAP_META[currentMap] || {good:[], bad:[]};
+
         oppLockedPlayers.forEach(p => {
             let role = p.r;
-            let availableHeroes = HEROES[role].filter(h => !bans.opp.includes(h.n) && !bans.my.includes(h.n) && !usedHeroes.includes(h.n));
-            if(availableHeroes.length === 0) availableHeroes = HEROES[role].filter(h => !bans.opp.includes(h.n) && !bans.my.includes(h.n)); 
+            let availableHeroes = HEROES[role].filter(h => 
+                !bans.opp.includes(h.n) && !bans.my.includes(h.n) && 
+                !matchBanHistory.opp.includes(h.n) && !matchBanHistory.my.includes(h.n) && 
+                !usedHeroes.includes(h.n)
+            );
+            if(availableHeroes.length === 0) availableHeroes = HEROES[role].filter(h => !bans.opp.includes(h.n)); 
 
-            let pickH = availableHeroes[Math.floor(Math.random()*availableHeroes.length)];
-            if(!pickH) pickH = HEROES[role][0];
+            let bestHero = availableHeroes[0];
+            let maxScore = -999;
+            availableHeroes.forEach(h => {
+                let score = 0;
+                if(p.ms.includes(h.n)) score += 50;
+                if(meta.good.includes(h.n)) score += 20;
+                if(meta.bad.includes(h.n)) score -= 20;
+                score += Math.random() * 5;
+                if(score > maxScore) { maxScore = score; bestHero = h; }
+            });
 
+            let pickH = bestHero || availableHeroes[0];
             usedHeroes.push(pickH.n);
             oppHeroPicks.push({ player: p, hero: pickH.n });
         });
@@ -1115,41 +1700,32 @@
             let totalPower = 0;
             let teamAvgTeamwork = 0;
             let teamCompCount = 0;
-
             let players = [];
             if(isMyTeam) players = playerNames.map(n => TEAM_DB[myTeam].find(p=>p.n===n));
             else players = playerNames.map(o => o.player);
-
             let moodMakerCount = players.filter(p => p.trait === "분위기메이커").length;
             let mistakeReduction = moodMakerCount * 0.5;
-
             let myScore = isMyTeam ? setScores[0] : setScores[1];
             let oppScore = isMyTeam ? setScores[1] : setScores[0];
             let isBehind = myScore < oppScore;
 
             players.forEach((p, idx) => {
                 let hName = isMyTeam ? heroes[idx] : heroes[idx].hero;
-                
                 let bonus = (p.trait === "소년가장" && isBehind) ? 2 : 0;
                 let t_a = p.a + bonus; 
                 let t_s = p.s + bonus; 
                 let t_m = p.m + bonus; 
                 let t_t = p.t + bonus;
-
                 let val = (t_a * 0.4) + (t_s * 0.3) + (t_m * 0.15) + (t_t * 0.15);
-                
-                let simHp = isMyTeam ? p.hp : (80 + Math.random()*20);
+                let simHp = p.hp; 
                 val *= (0.9 + (simHp/1000));
-
                 if(p.ms.includes(hName)) val += 5;
                 if(meta.good.includes(hName)) val += 5;
                 if(meta.bad.includes(hName)) val -= 5;
                 let hData = HEROES[p.r].find(h=>h.n===hName);
                 if(hData && hData.t === meta.type) { val += 3; teamCompCount++; }
-
                 let mistakeChance = ((100 - t_m) / 3) * (1 - (mistakeReduction * 0.2)); 
                 let roll = Math.random() * 100;
-                
                 if (roll < mistakeChance) {
                     val *= 0.7; 
                     logEvents.push({ type: 'mistake', team: isMyTeam ? 'MY' : 'OPP', player: p.n, hero: hName });
@@ -1157,27 +1733,22 @@
                 else {
                     let crackThreshold = 0.15;
                     if (p.trait === "베테랑") crackThreshold = 0.25; 
-
                     if (t_a > 92 && t_s > 92 && Math.random() < crackThreshold) {
                         val *= 1.25; 
                         logEvents.push({ type: 'crack', team: isMyTeam ? 'MY' : 'OPP', player: p.n, hero: hName });
                     }
                 }
-
                 totalPower += val;
                 teamAvgTeamwork += t_t;
             });
-
             if(teamCompCount >= 3) totalPower += 10;
             return { power: totalPower, avgTeamwork: teamAvgTeamwork / 5 };
         }
 
         let myStats = calcTeamPower(myLockedPlayers, myHs, true);
         let oppStats = calcTeamPower(oppHeroPicks, oppHeroPicks, false);
-
         let myFinalPower = myStats.power;
         let oppFinalPower = oppStats.power;
-
         let diff = myFinalPower - oppFinalPower;
         let winningTeam = diff > 0 ? 'MY' : 'OPP';
 
@@ -1195,7 +1766,6 @@
                 logEvents.push({ type: 'comeback', team: 'OPP' });
             }
         }
-
         let isWin = myFinalPower > oppFinalPower;
 
         function getSkillName(hName) { return HERO_SKILLS[hName] || "궁극기"; }
@@ -1243,15 +1813,15 @@
             setScores[1]++; setWinner = 1; 
             logHTML += `<div class="log-lose" style="font-size:1.1em; margin-top:5px;">>> ${currentSet}세트 패배... (점수차: ${Math.floor(oppFinalPower-myFinalPower)})</div>`; 
         }
-        
         const logWin = document.getElementById('log-window');
         logWin.innerHTML += logHTML;
         logWin.scrollTop = logWin.scrollHeight;
-
         myLockedPlayers.forEach(n => {
             playerSetCounts[n] = (playerSetCounts[n] || 0) + 1;
         });
-
+        oppLockedPlayers.forEach(p => {
+             playerSetCounts[p.n] = (playerSetCounts[p.n] || 0) + 1;
+        });
         updateScoreBoard();
         let winTarget = (seasonState === 'POST_FINAL') ? 4 : 3;
         if(setScores[0]===winTarget || setScores[1]===winTarget) endMatch(); 
@@ -1263,25 +1833,24 @@
         let won = setScores[0] === winTarget;
         let opp = getCurrentOpponentName();
         let winnerTeam = won ? myTeam : opp;
-        
         let potmName = calcMatchPOTM(winnerTeam);
-        
         log(`매치 종료. ${won ? '승리' : '패배'}.`);
         log(`<span class="log-potm">★ POTM: ${potmName} (${winnerTeam})</span>`);
-
         let totalSets = setScores[0] + setScores[1];
         Object.keys(playerSetCounts).forEach(pName => {
             let setsPlayed = playerSetCounts[pName];
             let ratio = setsPlayed / totalSets;
-            
-            let p = TEAM_DB[myTeam].find(x=>x.n===pName);
-            if(p) {
-                let baseLoss = (p.trait === "유망주") ? 6 : 9; 
+            let foundP = null;
+            Object.values(TEAM_DB).some(roster => {
+                let target = roster.find(x=>x.n===pName);
+                if(target) { foundP = target; return true; }
+            });
+            if(foundP) {
+                let baseLoss = (foundP.trait === "유망주") ? 6 : 9; 
                 let loss = Math.round(ratio * baseLoss);
-                p.hp = Math.max(0, p.hp - loss);
+                foundP.hp = Math.max(0, foundP.hp - loss);
             }
         });
-
         if (seasonState === "REGULAR") {
             recordStats(myTeam, opp, setScores[0], setScores[1]);
             advanceDay();

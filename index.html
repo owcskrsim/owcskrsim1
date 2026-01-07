@@ -1623,7 +1623,7 @@
         setTimeout(setupHeroPick, 1000);
     }
 
-    function setupHeroPick() {
+function setupHeroPick() {
         switchPhase('ui-pick');
         const el = document.getElementById('pick-slots');
         el.innerHTML = "";
@@ -1634,7 +1634,8 @@
                 <div style="font-weight:bold; color:var(--ow-orange);">${pName} (${role})</div>
                 <select id="hpick${i}">`;
             
-            HEROES[role].filter(h => !bans.my.includes(h.n) && !bans.opp.includes(h.n) && !matchBanHistory.my.includes(h.n) && !matchBanHistory.opp.includes(h.n)).forEach(h => {
+            // [수정됨] matchBanHistory 조건 제거 -> 현재 세트 밴(bans)만 확인
+            HEROES[role].filter(h => !bans.my.includes(h.n) && !bans.opp.includes(h.n)).forEach(h => {
                 html += `<option value="${h.n}">${h.n}</option>`;
             });
 
@@ -1644,16 +1645,16 @@
         generateOpponentHeroes();
     }
 
-    function generateOpponentHeroes() {
+function generateOpponentHeroes() {
         oppHeroPicks = [];
         let usedHeroes = [];
         let meta = MAP_META[currentMap] || {good:[], bad:[]};
 
         oppLockedPlayers.forEach(p => {
             let role = p.r;
+            // [수정됨] matchBanHistory 조건 제거 -> 현재 세트 밴(bans)만 확인
             let availableHeroes = HEROES[role].filter(h => 
                 !bans.opp.includes(h.n) && !bans.my.includes(h.n) && 
-                !matchBanHistory.opp.includes(h.n) && !matchBanHistory.my.includes(h.n) && 
                 !usedHeroes.includes(h.n)
             );
             if(availableHeroes.length === 0) availableHeroes = HEROES[role].filter(h => !bans.opp.includes(h.n)); 
@@ -1680,7 +1681,11 @@
         });
     }
 
-    function runSimulation() {
+function runSimulation() {
+        // [설정] 색상 정의 (아군: 파랑 / 적군: 빨강)
+        const COLOR_MY = "#3498db"; // 밝은 파랑
+        const COLOR_OPP = "#ff5e57"; // 밝은 빨강
+
         let myHs = [];
         for(let i=0; i<5; i++) {
             let h = document.getElementById(`hpick${i}`).value;
@@ -1696,6 +1701,7 @@
         let meta = MAP_META[currentMap] || {type:"General", good:[], bad:[]};
         let logEvents = []; 
         
+        // --- 1. 전투력 계산 로직 (랜덤성 포함) ---
         function calcTeamPower(playerNames, heroes, isMyTeam) {
             let totalPower = 0;
             let teamAvgTeamwork = 0;
@@ -1703,6 +1709,7 @@
             let players = [];
             if(isMyTeam) players = playerNames.map(n => TEAM_DB[myTeam].find(p=>p.n===n));
             else players = playerNames.map(o => o.player);
+            
             let moodMakerCount = players.filter(p => p.trait === "분위기메이커").length;
             let mistakeReduction = moodMakerCount * 0.5;
             let myScore = isMyTeam ? setScores[0] : setScores[1];
@@ -1711,63 +1718,85 @@
 
             players.forEach((p, idx) => {
                 let hName = isMyTeam ? heroes[idx] : heroes[idx].hero;
-                let bonus = (p.trait === "소년가장" && isBehind) ? 2 : 0;
+                
+                // 컨디션 (90% ~ 110%) + 체력 연동
+                let hpRatio = p.hp / 100;
+                let condition = 0.90 + (Math.random() * 0.20 * hpRatio);
+
+                let bonus = (p.trait === "소년가장" && isBehind) ? 5 : 0;
                 let t_a = p.a + bonus; 
                 let t_s = p.s + bonus; 
                 let t_m = p.m + bonus; 
                 let t_t = p.t + bonus;
-                let val = (t_a * 0.4) + (t_s * 0.3) + (t_m * 0.15) + (t_t * 0.15);
+
+                let val = (t_a * 0.35) + (t_s * 0.35) + (t_m * 0.15) + (t_t * 0.15);
+                val *= condition;
+                
                 let simHp = p.hp; 
-                val *= (0.9 + (simHp/1000));
-                if(p.ms.includes(hName)) val += 5;
-                if(meta.good.includes(hName)) val += 5;
-                if(meta.bad.includes(hName)) val -= 5;
+                val *= (0.6 + (simHp/250)); 
+
+                if(p.ms.includes(hName)) val += 8;
+                if(meta.good.includes(hName)) val += 6;
+                if(meta.bad.includes(hName)) val -= 6;
+                
                 let hData = HEROES[p.r].find(h=>h.n===hName);
-                if(hData && hData.t === meta.type) { val += 3; teamCompCount++; }
-                let mistakeChance = ((100 - t_m) / 3) * (1 - (mistakeReduction * 0.2)); 
+                if(hData && hData.t === meta.type) { val += 4; teamCompCount++; }
+
+                let mistakeChance = ((100 - t_m) / 2.5) * (1 - (mistakeReduction * 0.2)); 
                 let roll = Math.random() * 100;
+
                 if (roll < mistakeChance) {
-                    val *= 0.7; 
+                    val *= 0.6;
                     logEvents.push({ type: 'mistake', team: isMyTeam ? 'MY' : 'OPP', player: p.n, hero: hName });
                 } 
                 else {
                     let crackThreshold = 0.15;
                     if (p.trait === "베테랑") crackThreshold = 0.25; 
-                    if (t_a > 92 && t_s > 92 && Math.random() < crackThreshold) {
-                        val *= 1.25; 
+                    
+                    if (t_a > 90 && t_s > 90 && Math.random() < crackThreshold) {
+                        val *= 1.3;
                         logEvents.push({ type: 'crack', team: isMyTeam ? 'MY' : 'OPP', player: p.n, hero: hName });
                     }
                 }
                 totalPower += val;
                 teamAvgTeamwork += t_t;
             });
-            if(teamCompCount >= 3) totalPower += 10;
+            
+            if(teamCompCount >= 3) totalPower += 15;
             return { power: totalPower, avgTeamwork: teamAvgTeamwork / 5 };
         }
 
         let myStats = calcTeamPower(myLockedPlayers, myHs, true);
         let oppStats = calcTeamPower(oppHeroPicks, oppHeroPicks, false);
-        let myFinalPower = myStats.power;
-        let oppFinalPower = oppStats.power;
+
+        // 팀 운 변수 (95% ~ 105%)
+        let myLuck = 0.95 + (Math.random() * 0.1);
+        let oppLuck = 0.95 + (Math.random() * 0.1);
+        
+        let myFinalPower = myStats.power * myLuck;
+        let oppFinalPower = oppStats.power * oppLuck;
+
         let diff = myFinalPower - oppFinalPower;
         let winningTeam = diff > 0 ? 'MY' : 'OPP';
 
-        if (Math.abs(diff) < 30) { 
+        if (Math.abs(diff) < 40) { 
             if (winningTeam === 'OPP' && myStats.avgTeamwork > oppStats.avgTeamwork) {
                 let twDiff = myStats.avgTeamwork - oppStats.avgTeamwork;
-                let bonus = twDiff * 2.5; 
+                let bonus = twDiff * 3.0;
                 myFinalPower += bonus;
                 logEvents.push({ type: 'comeback', team: 'MY' });
             } 
             else if (winningTeam === 'MY' && oppStats.avgTeamwork > myStats.avgTeamwork) {
                 let twDiff = oppStats.avgTeamwork - myStats.avgTeamwork;
-                let bonus = twDiff * 2.5;
+                let bonus = twDiff * 3.0;
                 oppFinalPower += bonus;
                 logEvents.push({ type: 'comeback', team: 'OPP' });
             }
         }
+        
         let isWin = myFinalPower > oppFinalPower;
 
+        // --- 2. 중계 텍스트 생성 로직 ---
         function getSkillName(hName) { return HERO_SKILLS[hName] || "궁극기"; }
         function parseMsg(template, pName, hName) {
             let skill = getSkillName(hName);
@@ -1777,42 +1806,83 @@
         let logHTML = `<div style="margin-top:10px; border-top:1px dashed #444; padding-top:5px; color:#aaa;">--- ${currentSet}세트 중계 ---</div>`;
         logHTML += `<div class="log-caster">"${COMMENTARY_DB.OPENING[Math.floor(Math.random()*COMMENTARY_DB.OPENING.length)]}"</div>`;
 
+        // [추가] 중간 전투 상황 묘사 (2줄 추가)
+        // 랜덤한 선수와 멘트를 조합해 생동감 부여
+        const BATTLE_MID_COMMENTS = [
+            "{atk}의 {h1}가 전선을 밀어붙입니다! {def}의 {h2}가 위태롭습니다.",
+            "{def}의 {h2}, 끈질기게 버티며 {atk}의 공세를 막아냅니다.",
+            "치열한 난전! {atk}({h1}) 선수가 좋은 포지션을 잡았습니다.",
+            "{def} 진영, {h2}의 케어를 받으며 재정비합니다.",
+            "서로 킬 교환이 일어납니다! {atk}와 {def} 모두 물러서지 않습니다."
+        ];
+
+        for(let k=0; k<2; k++) {
+            // 랜덤으로 아군 1명, 적군 1명 뽑기
+            let myIdx = Math.floor(Math.random() * 5);
+            let oppIdx = Math.floor(Math.random() * 5);
+            
+            let myPName = myLockedPlayers[myIdx];
+            let myHName = myHs[myIdx];
+            let oppPName = oppHeroPicks[oppIdx].player.n;
+            let oppHName = oppHeroPicks[oppIdx].hero;
+
+            // 누가 주도권을 잡았는지 (전투력 차이 기반 약간의 확률)
+            let isMyAdvantage = (myFinalPower > oppFinalPower) ? (Math.random() > 0.4) : (Math.random() > 0.6);
+            
+            let atkName = isMyAdvantage ? myPName : oppPName;
+            let atkHero = isMyAdvantage ? myHName : oppHName;
+            let atkColor = isMyAdvantage ? COLOR_MY : COLOR_OPP;
+            
+            let defName = isMyAdvantage ? oppPName : myPName;
+            let defHero = isMyAdvantage ? oppHName : myHName;
+            let defColor = isMyAdvantage ? COLOR_OPP : COLOR_MY;
+
+            let tpl = BATTLE_MID_COMMENTS[Math.floor(Math.random() * BATTLE_MID_COMMENTS.length)];
+            let msg = tpl
+                .replace(/{atk}/g, `<span style="color:${atkColor}; font-weight:bold;">${atkName}</span>`)
+                .replace(/{h1}/g, atkHero)
+                .replace(/{def}/g, `<span style="color:${defColor}; font-weight:bold;">${defName}</span>`)
+                .replace(/{h2}/g, defHero);
+            
+            logHTML += `<div style="font-size:0.9em; margin:2px 0;">⚔️ ${msg}</div>`;
+        }
+
+        // [주요 이벤트] (색상 적용)
         if (logEvents.length > 0) {
             logEvents.forEach(ev => {
-                let teamColor = ev.team === 'MY' ? 'var(--ow-orange)' : 'var(--ban-red)';
+                let teamColor = ev.team === 'MY' ? COLOR_MY : COLOR_OPP; // 파랑 vs 빨강
                 if(ev.type === 'mistake') {
                     let tpl = COMMENTARY_DB.MISTAKE[Math.floor(Math.random()*COMMENTARY_DB.MISTAKE.length)];
                     let msg = parseMsg(tpl, ev.player, ev.hero);
-                    logHTML += `<div><span style="color:${teamColor};">▶</span> <span class="log-mistake">${msg}</span></div>`;
+                    // 전체 텍스트에 색상 적용
+                    logHTML += `<div><span style="color:${teamColor};">▶ [실수] ${msg}</span></div>`;
                 } else if (ev.type === 'crack') {
                     let tpl = COMMENTARY_DB.CRACK[Math.floor(Math.random()*COMMENTARY_DB.CRACK.length)];
                     let msg = parseMsg(tpl, ev.player, ev.hero);
-                    logHTML += `<div><span style="color:${teamColor};">▶</span> <span class="log-crack">${msg}</span></div>`;
+                    logHTML += `<div><span style="color:${teamColor};">▶ [슈퍼플레이] ${msg}</span></div>`;
                 } else if (ev.type === 'comeback') {
                     let tpl = COMMENTARY_DB.TEAMWORK_COMEBACK[Math.floor(Math.random()*COMMENTARY_DB.TEAMWORK_COMEBACK.length)];
                     let teamName = ev.team === 'MY' ? '아군' : '상대팀';
                     logHTML += `<div class="log-teamwork" style="color:${teamColor};">"${teamName}, ${tpl}" (팀워크 발동)</div>`;
                 }
             });
-        } else {
-            let rIdx = Math.floor(Math.random()*5);
-            let pName = myLockedPlayers[rIdx];
-            let hName = myHs[rIdx];
-            logHTML += `<div>**${pName}**의 **${hName}**와 상대의 치열한 교전이 계속됩니다.</div>`;
-        }
+        } 
 
-        if (!logEvents.some(e=>e.type==='comeback') && Math.abs(myFinalPower - oppFinalPower) > 50) {
+        // 일방적 경기 코멘트
+        if (!logEvents.some(e=>e.type==='comeback') && Math.abs(myFinalPower - oppFinalPower) > 60) {
              let tpl = COMMENTARY_DB.TEAMWORK_FAIL[Math.floor(Math.random()*COMMENTARY_DB.TEAMWORK_FAIL.length)];
              logHTML += `<div class="log-caster">"${tpl} 일방적인 경기입니다."</div>`;
         }
 
+        // 결과 출력
         if(isWin) { 
             setScores[0]++; setWinner = 0; 
-            logHTML += `<div class="log-win" style="font-size:1.1em; margin-top:5px;">>> ${currentSet}세트 승리! (점수차: ${Math.floor(myFinalPower-oppFinalPower)})</div>`; 
+            logHTML += `<div class="log-win" style="font-size:1.1em; margin-top:5px; color:${COLOR_MY}; border:1px solid ${COLOR_MY}; padding:5px;">>> ${currentSet}세트 승리! (점수: ${Math.floor(myFinalPower)} vs ${Math.floor(oppFinalPower)})</div>`; 
         } else { 
             setScores[1]++; setWinner = 1; 
-            logHTML += `<div class="log-lose" style="font-size:1.1em; margin-top:5px;">>> ${currentSet}세트 패배... (점수차: ${Math.floor(oppFinalPower-myFinalPower)})</div>`; 
+            logHTML += `<div class="log-lose" style="font-size:1.1em; margin-top:5px; color:${COLOR_OPP}; border:1px solid ${COLOR_OPP}; padding:5px;">>> ${currentSet}세트 패배... (점수: ${Math.floor(myFinalPower)} vs ${Math.floor(oppFinalPower)})</div>`; 
         }
+        
         const logWin = document.getElementById('log-window');
         logWin.innerHTML += logHTML;
         logWin.scrollTop = logWin.scrollHeight;
